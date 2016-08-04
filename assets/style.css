@@ -1,0 +1,111 @@
+body {
+    margin: 0;
+    font-family: helvetica, arial, sans-serif;
+    
+    background: repeating-linear-gradient(135deg, #ccc 0pt, #ccc 2pt, #aaa 2pt, #aaa 4pt);
+}
+
+header {
+    text-align: center;
+    position: fixed;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+header > h1 {
+    color: #ccc;
+    margin: 0;
+}
+
+header, #nav {
+    background-color: #000;
+}
+
+#nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    height: 0;
+    visibility: hidden;
+}
+
+header:hover > #nav {
+    height: auto;
+    visibility: visible;
+}
+
+#nav>li {
+    margin: 0;
+    padding: 0;
+}
+
+#nav a {
+    text-decoration: none;
+    display: block;
+    background-color: #333;
+    color: #000;
+}
+
+#nav a:hover {
+    background-color: #666;
+}
+
+#wrapper {
+    margin: auto;
+    background-color: rgba(255, 255, 255, 0.7);
+    max-width: 900pt;
+    min-width: 400pt;
+    height: 100%;
+    padding: 2%;
+    padding-top: 5em;
+}
+#board {
+    border-radius: 5pt;
+    border: 2pt solid #000;
+    padding: 1%;
+    margin: 1%;
+    overflow: hidden;
+    min-width: 410pt;
+}
+
+.item {
+    float: left;
+    margin: 1%;
+    padding: 1pt;
+    background-color: #999;
+    overflow: hidden;
+}
+
+.item > h2 {
+    margin: 0;
+    padding: 0;
+    position: absolute;
+}
+
+.item > p.img {
+    float: left;
+    width: 50pt;
+    height: 50pt;
+    background-color: red;
+    border-radius: 25pt;
+    color: white;
+    font-size: 25pt;
+    text-align: center;
+    line-height: 50pt;
+}
+
+.item > div {
+    float: right;
+    width: calc(100% - 50pt - 30pt);
+    padding: 15pt;
+}
+
+.desc {
+    color: #333;
+}
+
+.who {
+    color: #669;
+    text-align: right;
+}

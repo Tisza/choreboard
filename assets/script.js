@@ -1,4 +1,6 @@
 (function() {
+    var authid;
+
     window.addEventListener("load", function() {
         // browser checks
         if (!"Notification" in window) {
@@ -15,7 +17,7 @@
         navigator.serviceWorker.register('worker.js', {scope: './'});
 
         // look up their login info
-        var authid = document.cookie;
+        authid = document.cookie;
         if (authid == "") {
             // new user
             registerUser();
@@ -67,12 +69,14 @@
                 password = input.value;
                 console.log(friendlyName + ", " + password);
                 nono.parentNode.removeChild(nono);
+                authid = password;
             }
         });
 
         prompt.appendChild(input);
         nono.appendChild(prompt);
         document.body.insertBefore(nono, null);
+        input.focus();
     }
 
 })();

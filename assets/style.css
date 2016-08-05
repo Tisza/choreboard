@@ -32,7 +32,6 @@ header, #nav {
     position: absolute;
     top: 0;
     left: 0;
-    /*visibility: hidden;*/
     transition: margin 1s;
     margin-left: -5em;
 }
@@ -53,19 +52,6 @@ header, #nav {
 #nav a:hover {
     background-color: #666;
 }
-
-
-/*
-header:hover > #nav {
-    height: auto;
-    visibility: visible;
-}
-
-#nav>li {
-    margin: 0;
-    padding: 0;
-}
-*/
 
 #wrapper {
     margin: auto;

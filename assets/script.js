@@ -46,13 +46,13 @@
         return request;
     }
 
-    function registerUser() {
+    function registerUser(str) {
         var nono = document.createElement("div");
         nono.id = "nonosquare";
         var prompt = document.createElement("div");
         prompt.id = "prompt";
         var text = document.createElement("p");
-        text.innerHTML = "Enter a friendly name:";
+        text.innerHTML = (str? str : "Enter a friendly name:");
         prompt.appendChild(text);
         var input = document.createElement("input");
         input.type = "text";
@@ -67,9 +67,22 @@
                 text.innerHTML = "secret phrase:";
             } else {
                 password = input.value;
-                console.log(friendlyName + ", " + password);
                 nono.parentNode.removeChild(nono);
-                authid = password;
+                
+                ajax("http://" + location.host + ":8080/api/loginUser?name=" + 
+                    friendlyName + "&password=" + password,
+                    function(e) {
+                        console.log(e);
+                        if (e.target.status != 200) {
+                            registerUser("Server Denied Request, try again. Friendly Name:");
+                        } else {
+                            authid = e.target.responseText;
+                            document.cookie = authid;
+                        }
+                    }
+                ).addEventListener("error", function() {
+                    registerUser("Couldn't reach server, try again. Friendly Name:");
+                });
             }
         });
 

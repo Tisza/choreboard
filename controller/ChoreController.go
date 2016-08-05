@@ -5,6 +5,15 @@ import (
 	"net/http"
 )
 
+/**
+	TODO: implement handleUserStatus
+	TODO: implement handleSignChore
+	TODO: implement handleChoreBoard
+	TODO: implement handleLoginUser
+	TODO: implement handleReportChore
+	TODO: read 'How To Write Go' and figure out how to have Controller talk to Model
+ */
+
 const HOST_NAME string = "localhost"
 const PORT string = "8080"
 const HOST = HOST_NAME + ":" + PORT
@@ -124,7 +133,6 @@ func sliceEq(a, b []string) bool {
 
 	for i := range a {
 		if a[i] != b[i] {
-
 			return false
 		}
 	}

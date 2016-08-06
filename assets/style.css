@@ -27,7 +27,7 @@ header, #nav {
     margin: 0;
     padding: 0;
     padding-top: 3em;
-    height: 100%;
+    height: calc(100% - 3em);
     float: left;
     position: absolute;
     top: 0;
@@ -60,15 +60,14 @@ header, #nav {
     min-width: 400pt;
     height: 100%;
     padding: 2%;
-    padding-top: 5em;
+    padding-top: 2em;
 }
 #board {
-    border-radius: 5pt;
-    border: 2pt solid #000;
-    padding: 1%;
     margin: 1%;
     overflow: hidden;
     min-width: 410pt;
+    background-color: rgba(0, 0, 0, 0.2);
+    
 }
 
 .item {
@@ -133,4 +132,24 @@ header, #nav {
     margin: 0;
     text-align: center;
     border-radius: 15pt;
+}
+
+#throbber {
+    width: 100pt;
+    height: 100pt;
+    margin: 100pt auto;
+    background-color: #000;
+    animation-iteration-count: infinite;
+    animation-name: spin;
+    animation-duration: 1s;
+    border-radius: 15pt;
+}
+
+@keyframes spin {
+    from {
+        transform: rotat(1deg);
+    }
+    to {
+        transform: rotate(359deg);
+    }
 }

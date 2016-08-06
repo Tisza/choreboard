@@ -69,7 +69,7 @@
                 password = input.value;
                 nono.parentNode.removeChild(nono);
                 
-                ajax("http://" + location.host + ":8080/api/loginUser?name=" + 
+                ajax("http://" + location.host + ":8080/loginUser?friendlyName=" + 
                     friendlyName + "&password=" + password,
                     function(e) {
                         console.log(e);

@@ -6,13 +6,13 @@ import (
 )
 
 /**
-	TODO: implement handleUserStatus
-	TODO: implement handleSignChore
-	TODO: implement handleChoreBoard
-	TODO: implement handleLoginUser
-	TODO: implement handleReportChore
-	TODO: read 'How To Write Go' and figure out how to have Controller talk to Model
- */
+TODO: implement handleUserStatus
+TODO: implement handleSignChore
+TODO: implement handleChoreBoard
+TODO: implement handleLoginUser
+TODO: implement handleReportChore
+TODO: read 'How To Write Go' and figure out how to have Controller talk to Model
+*/
 
 const HOST_NAME string = "localhost"
 const PORT string = "8080"
@@ -23,7 +23,6 @@ var SIGN_CHORE_PARAMS = []string{"authID", "accept"}
 var CHORE_BOARD_PARAMS = []string{"authID"}
 var LOGIN_USER_PARAMS = []string{"friendlyName", "password"}
 var REPORT_CHORE_PARAMS = []string{"authID", "chore", "mode"}
-
 
 func main() {
 
@@ -39,15 +38,14 @@ func main() {
 
 //=============================== Handlers ===============================//
 
-
 func middleware(next http.HandlerFunc, expectedParams []string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Access-Control-Allow-Origin", "*")
 		if !isBadRequest(w, r, expectedParams) {
 			next.ServeHTTP(w, r)
 		}
 	})
 }
-
 
 func handleUserStatus(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Executed userStatus handler!")
@@ -75,9 +73,7 @@ func handleReportChore(w http.ResponseWriter, r *http.Request) {
 
 //=============================== End of Handlers ===========================//
 
-
 //=============================== Helpers ===========================//
-
 
 func printRequestTraits(r *http.Request) {
 	fmt.Printf("URL: %v\n", r.URL)
@@ -90,7 +86,7 @@ func printRequestTraits(r *http.Request) {
 	fmt.Println()
 }
 
-func getParams(r *http.Request) ([]string) {
+func getParams(r *http.Request) []string {
 	params := make([]string, 0)
 	for param := range r.Form {
 		//fmt.Println(param)
@@ -120,11 +116,11 @@ func isBadRequest(w http.ResponseWriter, r *http.Request, expectedParams []strin
 
 func sliceEq(a, b []string) bool {
 	if a == nil && b == nil {
-		return true;
+		return true
 	}
 
 	if a == nil || b == nil {
-		return false;
+		return false
 	}
 
 	if len(a) != len(b) {

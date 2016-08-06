@@ -7,6 +7,10 @@
     // the authentication id of this user
     var authid;
 
+    // connection error Message
+    var ERRCONNECT = "Couldn't contact server. Message Drew or Logan.";
+
+
     window.addEventListener("load", function() {
         // browser checks
         if (!"Notification" in window) {
@@ -49,6 +53,10 @@
     function ajax(url, callback) {
         var request = new XMLHttpRequest();
         request.addEventListener("load", callback);
+        request.addEventListener("error", function(e) {
+            console.log(e);
+            error("Connection Error", ERRCONNECT);
+        })
         request.open("GET", url, true);
         request.send();
         return request;
@@ -61,11 +69,20 @@
 
     // re-writes the main wrapper to display the current chore-chart.
     function populateChoreChart() {
-        var board = $("board");
-        board.innerHTML = "";
-        var throbber = document.createElement("div");
-        throbber.id = "throbber";
-        board.appendChild(throbber);
+        var th = throbber();
+
+        ajax("http://" + BACKEND + "/choreBoard?authID=" + authid,
+        function(e) {
+            if (e.target.status == 200) {
+                console.log(e.target.response);
+            } else if (e.target.status == 403) {
+                document.cookie = "";
+                th.stop();
+                registerUser("Please sign in. Friendly Name:", populateChoreChart);
+            } else {
+                error(e.target.status, e.target.statusText);
+            }
+        });
     }
 
     // registers a user, either creating a new account or reauthenticating them
@@ -125,11 +142,7 @@
                             callback();
                         }
                     }
-                ).addEventListener("error", function() {
-                    // also prompt if we couldn't connect to the backend.
-                    registerUser("Couldn't reach server, try again. Friendly Name:",
-                        callback);
-                });
+                );
             }
         });
 
@@ -138,6 +151,61 @@
         nono.appendChild(prompt);
         document.body.insertBefore(nono, null);
         input.focus();
+    }
+
+    // presents a non-closable fatal error to the user
+    function error(title, body) {
+        var prompt = document.createElement("div");
+        var nono = document.createElement("div");
+        var head = document.createElement("p");
+        var text = document.createElement("p");
+        prompt.id = "prompt";
+        nono.id = "nonosquare";
+        prompt.style.backgroundColor = "rgba(255, 0, 0, 0.5)";
+        head.style.fontWeight = "900";
+        head.innerHTML = title;
+        text.innerHTML = body;
+        prompt.appendChild(head);
+        prompt.appendChild(text);
+        nono.appendChild(prompt);
+        document.body.appendChild(nono);
+    }
+
+    // function for setInterval on throbbers to alter its color
+    // the param is the throbber to animate
+    // REQUIRES throbber t has field interval set to the 
+    // setInterval this is called at.
+    function throbberHelper(t) {
+        if (t.parentNode == null) {
+            clearInterval(t.interval);
+        }
+        var time = t.tic;
+        if (!time) {
+            time = 0;
+        }
+        time = time + 0.05;
+        var v = Math.round(20 * (Math.sin(time))) + 30;
+        var h = Math.round(120 + 60 * Math.cos(time / 2));
+        t.style.backgroundColor = "hsl(" + h + ", 50%, " + v + "%)";
+        t.hue = h;
+        t.tic = time;
+    }
+
+    // sets up a throbber and returns it for removal
+    function throbber() {
+        var board = $("board");
+        board.innerHTML = "";
+        var throbber = document.createElement("div");
+        throbber.id = "throbber";
+        board.appendChild(throbber);
+        throbber.interval = setInterval(throbberHelper, 100, throbber);
+
+        throbber.stop = function() {
+            clearInterval(throbber.interval);
+            throbber.parentNode.removeChild(throbber);
+        }
+
+        return throbber;
     }
 
 })();

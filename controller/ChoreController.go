@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net"
 	"errors"
+	"choreboard/model"
 )
 
 /**
@@ -13,7 +14,6 @@ import (
 	TODO: implement handleChoreBoard
 	TODO: implement handleLoginUser
 	TODO: implement handleReportChore
-	TODO: read 'How To Write Go' and figure out how to have Controller talk to Model
  */
 
 var HOST_NAME , err = externalIP()
@@ -52,26 +52,27 @@ func middleware(next http.HandlerFunc, expectedParams []string) http.HandlerFunc
 
 
 func handleUserStatus(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed userStatus handler!")
+	fmt.Fprintf(w, "Executed userStatus handler!\n")
+	fmt.Fprintf(w, model.Do())
 }
 
 func handleSignChore(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed signChore handler!")
+	fmt.Fprintf(w, "Executed signChore handler!\n")
 
 }
 
 func handleChoreBoard(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed choreBoard handler!")
+	fmt.Fprintf(w, "Executed choreBoard handler!\n")
 
 }
 
 func handleLoginUser(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed loginUser handler!")
+	fmt.Fprintf(w, "Executed loginUser handler!\n")
 
 }
 
 func handleReportChore(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed reportChore handler!")
+	fmt.Fprintf(w, "Executed reportChore handler!\n")
 
 }
 

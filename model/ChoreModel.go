@@ -1,5 +1,5 @@
 package model
 
-func do() string {
+func Do() string {
 	return "Doin stuff"
 }

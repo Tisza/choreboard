@@ -33,7 +33,7 @@ header, #nav {
     top: 0;
     left: 0;
     transition: margin 1s;
-    margin-left: -5em;
+    margin-left: -8em;
 }
 
 #nav:hover {

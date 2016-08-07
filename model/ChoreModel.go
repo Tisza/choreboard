@@ -43,8 +43,6 @@ func (e HttpStatus) Error() string {
 
 var OK = HttpStatus{200, "OK"}
 
-// ====================== End of Data Types ================ //
-
 // ======================== Public Functions =============== //
 
 // returns JSON object with information about a particular user
@@ -80,7 +78,7 @@ func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 		// check password
 		if passwordCheck(authID, password) {
 			// everything checks out, return back the authID and OK status
-			return marshalAndValidate(authID)
+			return marshalAndValidate("{\"authID\":" + authID + "}")
 		} else {
 			// Invalid password, report
 			return []byte{}, HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
@@ -102,9 +100,23 @@ func ReportChore(authID string, choreName string, mode string) HttpStatus {
 	}
 }
 
-// ========================= End of Public Functions ========== //
-
 // ============================== Helpers ===================== //
+
+func authFilterJson(authID string, getMarshalableObject func(authID string) interface{}) {
+	if verifyAuthID(authID) {
+		return marshalAndValidate(getMarshalableObject(authID))
+	} else {
+		return []byte{}, HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
+	}
+}
+
+func authFilterStatus(authID string, getStatus func(authID string) HttpStatus) {
+	if verifyAuthID(authID) {
+		return getStatus(authID)
+	} else {
+		return HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
+	}
+}
 
 func setNextUser(authID string, friendlyName string) HttpStatus {
 	return OK
@@ -138,5 +150,3 @@ func marshalAndValidate(v interface{}) ([]byte, HttpStatus) {
 		return json, OK
 	}
 }
-
-// ======================== End of Helpers ================== //

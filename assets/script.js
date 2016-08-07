@@ -177,9 +177,14 @@
                         } else {
                             // we reach the server, parse and save the response.
                             var res = JSON.parse(e.target.responseText);
-                            authid = res.AuthID;
-                            document.cookie = authid;
-                            callback();
+                            authid = res;
+                            if (authid == "") {
+                                registerUser("Incorrect secret phrase, try again." + 
+                                   " Friendly Name:", callback);
+                            } else {
+                                document.cookie = authid;
+                                callback();
+                            }
                         }
                     }
                 );

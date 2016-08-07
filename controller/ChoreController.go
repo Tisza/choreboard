@@ -21,10 +21,10 @@ var PORT string = "8080"
 var HOST = HOST_NAME + ":" + PORT
 
 var USER_STATUS_PARAMS = []string{"authID"}
-var SIGN_CHORE_PARAMS = []string{"authID", "accept"}
+var SIGN_CHORE_PARAMS = []string{"authID", "choreName", "accept"}
 var CHORE_BOARD_PARAMS = []string{"authID"}
 var LOGIN_USER_PARAMS = []string{"friendlyName", "password"}
-var REPORT_CHORE_PARAMS = []string{"authID", "chore", "mode"}
+var REPORT_CHORE_PARAMS = []string{"authID", "choreName", "mode"}
 
 
 func main() {
@@ -52,28 +52,56 @@ func middleware(next http.HandlerFunc, expectedParams []string) http.HandlerFunc
 
 
 func handleUserStatus(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed userStatus handler!\n")
-	fmt.Fprintf(w, model.Do())
+	json, status := model.GetUserStatus(r.Form[USER_STATUS_PARAMS[0]][0])
+	if status.Code != 200 {
+		http.Error(w, status.Description, status.Code)
+	} else {
+		fmt.Fprintf(w, "%s", json)
+	}
 }
 
 func handleSignChore(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed signChore handler!\n")
-
+	// this is gross
+	var accept bool
+	if r.Form[SIGN_CHORE_PARAMS[2]][0] == "true" {
+		accept = true
+	} else {
+		accept = false
+	}
+	//
+	status := model.SetUserChore(r.Form[SIGN_CHORE_PARAMS[0]][0], r.Form[SIGN_CHORE_PARAMS[1]][0], accept)
+	if status.Code != 200 {
+		http.Error(w, status.Description, status.Code)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
 }
 
 func handleChoreBoard(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed choreBoard handler!\n")
-
+	json, status := model.GetChoreBoard(r.Form[CHORE_BOARD_PARAMS[0]][0])
+	if status.Code != 200 {
+		http.Error(w, status.Description, status.Code)
+	} else {
+		fmt.Fprintf(w, "%s", json)
+	}
 }
 
 func handleLoginUser(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed loginUser handler!\n")
-
+	json, status := model.LoginUser(r.Form[LOGIN_USER_PARAMS[0]][0], r.Form[LOGIN_USER_PARAMS[1]][0])
+	if status.Code != 200 {
+		http.Error(w, status.Description, status.Code)
+	} else {
+		fmt.Fprintf(w, "%s", json)
+	}
 }
 
 func handleReportChore(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed reportChore handler!\n")
-
+	status := model.ReportChore(r.Form[REPORT_CHORE_PARAMS[0]][0], r.Form[REPORT_CHORE_PARAMS[1]][0], r.Form[REPORT_CHORE_PARAMS[2]][0])
+	if status.Code != 200 {
+		http.NotFound(w, r)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
 }
 
 //=============================== End of Handlers ===========================//

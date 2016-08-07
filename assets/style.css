@@ -103,6 +103,10 @@ header, #nav {
     padding: 15pt;
 }
 
+.active {
+    background-color: #1a1;
+}
+
 .desc {
     color: #333;
 }

@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net"
+	"errors"
+	"choreboard/model"
 )
 
 /**
@@ -11,27 +14,26 @@ import (
 	TODO: implement handleChoreBoard
 	TODO: implement handleLoginUser
 	TODO: implement handleReportChore
-	TODO: read 'How To Write Go' and figure out how to have Controller talk to Model
  */
 
-const HOST_NAME string = "localhost"
-const PORT string = "8080"
-const HOST = HOST_NAME + ":" + PORT
+//var HOST_NAME , err = externalIP()
+var PORT string = "8080"
+var HOST = ":" + PORT
 
 var USER_STATUS_PARAMS = []string{"authID"}
-var SIGN_CHORE_PARAMS = []string{"authID", "accept"}
+var SIGN_CHORE_PARAMS = []string{"authID", "choreName", "accept"}
 var CHORE_BOARD_PARAMS = []string{"authID"}
 var LOGIN_USER_PARAMS = []string{"friendlyName", "password"}
-var REPORT_CHORE_PARAMS = []string{"authID", "chore", "mode"}
+var REPORT_CHORE_PARAMS = []string{"authID", "choreName", "mode"}
 
 
 func main() {
 
-	http.HandleFunc("/userStatus", middleware(handleUserStatus, USER_STATUS_PARAMS))
-	http.HandleFunc("/signChore", middleware(handleSignChore, SIGN_CHORE_PARAMS))
-	http.HandleFunc("/choreBoard", middleware(handleChoreBoard, CHORE_BOARD_PARAMS))
-	http.HandleFunc("/loginUser", middleware(handleLoginUser, LOGIN_USER_PARAMS))
-	http.HandleFunc("/reportChore", middleware(handleReportChore, REPORT_CHORE_PARAMS))
+	http.HandleFunc("/userStatus", badRequestFilter(handleUserStatus, USER_STATUS_PARAMS))
+	http.HandleFunc("/signChore", badRequestFilter(handleSignChore, SIGN_CHORE_PARAMS))
+	http.HandleFunc("/choreBoard", badRequestFilter(handleChoreBoard, CHORE_BOARD_PARAMS))
+	http.HandleFunc("/loginUser", badRequestFilter(handleLoginUser, LOGIN_USER_PARAMS))
+	http.HandleFunc("/reportChore", badRequestFilter(handleReportChore, REPORT_CHORE_PARAMS))
 
 	fmt.Println("About to ListenAndServe on " + HOST)
 	http.ListenAndServe(HOST, nil)
@@ -40,44 +42,66 @@ func main() {
 //=============================== Handlers ===============================//
 
 
-func middleware(next http.HandlerFunc, expectedParams []string) http.HandlerFunc {
+func handleUserStatus(w http.ResponseWriter, r *http.Request) {
+	json, status := model.GetUserStatus(r.Form[USER_STATUS_PARAMS[0]][0])
+	handleJson(w, json, status)
+}
+
+func handleSignChore(w http.ResponseWriter, r *http.Request) {
+	/////// this is gross////
+	var accept bool
+	if r.Form[SIGN_CHORE_PARAMS[2]][0] == "true" {
+		accept = true
+	} else {
+		accept = false
+	}
+	////////////////////////
+	status := model.SetUserChore(r.Form[SIGN_CHORE_PARAMS[0]][0], r.Form[SIGN_CHORE_PARAMS[1]][0], accept)
+	handleStatus(w, r, status)
+}
+
+func handleChoreBoard(w http.ResponseWriter, r *http.Request) {
+	json, status := model.GetChoreBoard(r.Form[CHORE_BOARD_PARAMS[0]][0])
+	handleJson(w, json, status)
+}
+
+func handleLoginUser(w http.ResponseWriter, r *http.Request) {
+	json, status := model.LoginUser(r.Form[LOGIN_USER_PARAMS[0]][0], r.Form[LOGIN_USER_PARAMS[1]][0])
+	handleJson(w, json, status)
+}
+
+func handleReportChore(w http.ResponseWriter, r *http.Request) {
+	status := model.ReportChore(r.Form[REPORT_CHORE_PARAMS[0]][0], r.Form[REPORT_CHORE_PARAMS[1]][0], r.Form[REPORT_CHORE_PARAMS[2]][0])
+	handleStatus(w, r, status)
+}
+
+
+//=============================== Helpers ===========================//
+
+func badRequestFilter(next http.HandlerFunc, expectedParams []string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !isBadRequest(w, r, expectedParams) {
+			w.Header().Add("Access-Control-Allow-Origin", "*")
 			next.ServeHTTP(w, r)
 		}
 	})
 }
 
-
-func handleUserStatus(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed userStatus handler!")
+func handleJson(w http.ResponseWriter, json []byte, status model.HttpStatus) {
+	if status.Code != 200 {
+		http.Error(w, status.Description, status.Code)
+	} else {
+		fmt.Fprintf(w, "%s", json)
+	}
 }
 
-func handleSignChore(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed signChore handler!")
-
+func handleStatus(w http.ResponseWriter, r *http.Request, status model.HttpStatus) {
+	if status.Code != 200 {
+		http.NotFound(w, r)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
 }
-
-func handleChoreBoard(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed choreBoard handler!")
-
-}
-
-func handleLoginUser(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed loginUser handler!")
-
-}
-
-func handleReportChore(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Executed reportChore handler!")
-
-}
-
-//=============================== End of Handlers ===========================//
-
-
-//=============================== Helpers ===========================//
-
 
 func printRequestTraits(r *http.Request) {
 	fmt.Printf("URL: %v\n", r.URL)
@@ -140,4 +164,39 @@ func sliceEq(a, b []string) bool {
 	return true
 }
 
-//=============================== End of Helpers ===========================//
+func externalIP() (string, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue // interface down
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue // loopback interface
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return "", err
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			ip = ip.To4()
+			if ip == nil {
+				continue // not an ipv4 address
+			}
+			return ip.String(), nil
+		}
+	}
+	return "", errors.New("are you connected to the network?")
+}

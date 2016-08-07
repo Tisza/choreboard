@@ -47,19 +47,19 @@ var OK = HttpStatus{200, "OK"}
 
 // returns JSON object with information about a particular user
 func GetUserStatus(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(args ...string) interface{} {
+	return authFilterJson(func() interface{} {
 		return User{authID, "Bob", "chickens", "", "", 0}
 	}, func(){}, authID)
 }
 
 func SetUserChore(authID string, choreName string, accept bool) HttpStatus {
-	return authFilterStatus(func(args ...string) HttpStatus {
+	return authFilterStatus(func() HttpStatus {
 		return OK
 	}, authID)
 }
 
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(args ...string) interface{} {
+	return authFilterJson(func() interface{} {
 		chore1 := Chore{"Bob", 9001, true, "2016-08-03T14:00:00Z", "Take out the trash", "1"}
 		chore2 := Chore{"Logan", 2, true, "2016-07-03T14:00:00Z", "Be pretty", "2"}
 		chore3 := Chore{"", 500, false, "2016-08-01T14:00:00Z", "Clean the sink", "3"}
@@ -83,7 +83,7 @@ func LoginUser(friendlyName string, password string) ([]byte, HttpStatus){
 }
 
 func ReportChore(authID string, choreName string, mode string) HttpStatus {
-	return authFilterStatus(func(args ...string) HttpStatus {
+	return authFilterStatus(func() HttpStatus {
 		return OK
 	}, authID)
 }
@@ -93,7 +93,7 @@ func ReportChore(authID string, choreName string, mode string) HttpStatus {
 // MMMMMMMMMM
 func authFilterJson(getMarshalableObject func() interface{},
 					optionalFailure func(),
-					authID string, ) ([]byte, HttpStatus) {
+					authID string) ([]byte, HttpStatus) {
 	if verifyAuthID(authID) {
 		return marshalAndValidate(getMarshalableObject())
 	} else {
@@ -103,8 +103,7 @@ func authFilterJson(getMarshalableObject func() interface{},
 }
 
 // MMMMMMMMMM
-func authFilterStatus(getStatus func () HttpStatus,
-						authID string) HttpStatus {
+func authFilterStatus(getStatus func () HttpStatus, authID string) HttpStatus {
 	if verifyAuthID(authID) {
 		return getStatus()
 	} else {

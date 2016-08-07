@@ -41,7 +41,7 @@ func main() {
 
 func middleware(next http.HandlerFunc, expectedParams []string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Access-Control-Allow-Origin:", "*")
+		w.Header().Add("Access-Control-Allow-Origin", "*")
 		if !isBadRequest(w, r, expectedParams) {
 			next.ServeHTTP(w, r)
 		}

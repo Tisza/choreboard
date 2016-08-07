@@ -1,20 +1,20 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
-	"net"
-	"errors"
 	"choreboard/model"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
 )
 
 /**
-	TODO: implement handleUserStatus
-	TODO: implement handleSignChore
-	TODO: implement handleChoreBoard
-	TODO: implement handleLoginUser
-	TODO: implement handleReportChore
- */
+TODO: implement handleUserStatus
+TODO: implement handleSignChore
+TODO: implement handleChoreBoard
+TODO: implement handleLoginUser
+TODO: implement handleReportChore
+*/
 
 //var HOST_NAME , err = externalIP()
 var PORT string = "8080"
@@ -25,7 +25,6 @@ var SIGN_CHORE_PARAMS = []string{"authID", "choreName", "accept"}
 var CHORE_BOARD_PARAMS = []string{"authID"}
 var LOGIN_USER_PARAMS = []string{"friendlyName", "password"}
 var REPORT_CHORE_PARAMS = []string{"authID", "choreName", "mode"}
-
 
 func main() {
 
@@ -40,7 +39,6 @@ func main() {
 }
 
 //=============================== Handlers ===============================//
-
 
 func handleUserStatus(w http.ResponseWriter, r *http.Request) {
 	json, status := model.GetUserStatus(r.Form[USER_STATUS_PARAMS[0]][0])
@@ -74,7 +72,6 @@ func handleReportChore(w http.ResponseWriter, r *http.Request) {
 	status := model.ReportChore(r.Form[REPORT_CHORE_PARAMS[0]][0], r.Form[REPORT_CHORE_PARAMS[1]][0], r.Form[REPORT_CHORE_PARAMS[2]][0])
 	handleStatus(w, r, status)
 }
-
 
 //=============================== Helpers ===========================//
 
@@ -114,7 +111,7 @@ func printRequestTraits(r *http.Request) {
 	fmt.Println()
 }
 
-func getParams(r *http.Request) ([]string) {
+func getParams(r *http.Request) []string {
 	params := make([]string, 0)
 	for param := range r.Form {
 		//fmt.Println(param)
@@ -144,11 +141,11 @@ func isBadRequest(w http.ResponseWriter, r *http.Request, expectedParams []strin
 
 func sliceEq(a, b []string) bool {
 	if a == nil && b == nil {
-		return true;
+		return true
 	}
 
 	if a == nil || b == nil {
-		return false;
+		return false
 	}
 
 	if len(a) != len(b) {

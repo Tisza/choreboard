@@ -2,34 +2,34 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
-	"fmt"
 )
 
 /**
-	TODO: more obfuscating authID reviersible hash
-	TODO: hold persistent data in .json files
- */
+TODO: more obfuscating authID reviersible hash
+TODO: hold persistent data in .json files
+*/
 
 // =================== Data Types ========================== //
 
 type User struct {
-	AuthID string
+	AuthID       string
 	FriendlyName string
-	Password string
-	Chore string        // assigned chore name, otherwise empty string
-	Deadline string     // UTC local time for chore deadline if assigned, otherwise empty string
-	Shame int
+	Password     string
+	Chore        string // assigned chore name, otherwise empty string
+	Deadline     string // UTC local time for chore deadline if assigned, otherwise empty string
+	Shame        int
 }
 
 type Chore struct {
-	Assignee string     // the friendly name of the user assigned to this chore
-	AmtOfShame int
-	Active bool
+	Assignee     string // the friendly name of the user assigned to this chore
+	AmtOfShame   int
+	Active       bool
 	ReportedTime string // UTC local time for chore deadline
-	Description string  // description of chore
-	ChoreName string
+	Description  string // description of chore
+	ChoreName    string
 }
 
 type HttpStatus struct {
@@ -67,7 +67,7 @@ func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 	}, func(){}, authID)
 }
 
-func LoginUser(friendlyName string, password string) ([]byte, HttpStatus){
+func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 	authID := constructAuthID(friendlyName, password)
 	return authFilterJson(func() interface{} {
 		if passwordCheck(authID, password) {
@@ -89,6 +89,7 @@ func ReportChore(authID string, choreName string, mode string) HttpStatus {
 }
 
 // ============================== Helpers ===================== //
+
 
 // MMMMMMMMMM
 func authFilterJson(getMarshalableObject func() interface{},
@@ -115,7 +116,7 @@ func setNextUser(authID string, friendlyName string) HttpStatus {
 	return OK
 }
 
-func constructAuthID(friendlyName string, password string) (string) {
+func constructAuthID(friendlyName string, password string) string {
 	return friendlyName + ":" + password
 }
 

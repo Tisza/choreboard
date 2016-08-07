@@ -47,72 +47,66 @@ var OK = HttpStatus{200, "OK"}
 
 // returns JSON object with information about a particular user
 func GetUserStatus(authID string) ([]byte, HttpStatus) {
-	if verifyAuthID(authID) {
-		person := User{authID, "Bob", "chickens", "", "", 0}
-		return marshalAndValidate(person)
-	} else {
-		return []byte{}, HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
-	}
+	return authFilterJson(func() interface{} {
+		return User{authID, "Bob", "chickens", "", "", 0}
+	}, func(){}, authID)
 }
 
 func SetUserChore(authID string, choreName string, accept bool) HttpStatus {
-	return OK
+	return authFilterStatus(func() HttpStatus {
+		return OK
+	}, authID)
 }
 
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
-	if verifyAuthID(authID) {
+	return authFilterJson(func() interface{} {
 		chore1 := Chore{"Bob", 9001, true, "2016-08-03T14:00:00Z", "Take out the trash", "1"}
 		chore2 := Chore{"Logan", 2, true, "2016-07-03T14:00:00Z", "Be pretty", "2"}
 		chore3 := Chore{"", 500, false, "2016-08-01T14:00:00Z", "Clean the sink", "3"}
-		chores := []Chore{chore1, chore2, chore3}
-		return marshalAndValidate(chores)
-	} else {
-		return []byte{}, HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
-	}
+		return []Chore{chore1, chore2, chore3}
+	}, func(){}, authID)
 }
 
 func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 	authID := constructAuthID(friendlyName, password)
-	if verifyAuthID(authID) {
-		// User is already known
-		// check password
+	return authFilterJson(func() interface{} {
 		if passwordCheck(authID, password) {
-			// everything checks out, return back the authID and OK status
-			return marshalAndValidate("{\"authID\":" + authID + "}")
-		} else {
-			// Invalid password, report
-			return []byte{}, HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
-		}
-	} else {
-		// New user
+				// everything checks out, return back the authID and OK status
+				return authID
+			} else {
+				// Invalid password, report
+				return []byte{}
+			}
+	}, func() {
 		addUser(User{authID, friendlyName, password, "", "", 0})
-		return marshalAndValidate(authID)
-	}
+	}, authID)
 }
 
 func ReportChore(authID string, choreName string, mode string) HttpStatus {
-	if verifyAuthID(authID) {
-
+	return authFilterStatus(func() HttpStatus {
 		return OK
-
-	} else {
-		return HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
-	}
+	}, authID)
 }
 
 // ============================== Helpers ===================== //
 
-func authFilterJson(authID string, getMarshalableObject func(authID string) interface{}) {
+
+// MMMMMMMMMM
+func authFilterJson(getMarshalableObject func() interface{},
+					optionalFailure func(),
+					authID string) ([]byte, HttpStatus) {
 	if verifyAuthID(authID) {
-		return marshalAndValidate(getMarshalableObject(authID))
+		return marshalAndValidate(getMarshalableObject())
 	} else {
+		optionalFailure()
 		return []byte{}, HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
 	}
 }
 
-func authFilterStatus(authID string, getStatus func(authID string) HttpStatus) {
+// MMMMMMMMMM
+func authFilterStatus(getStatus func () HttpStatus, authID string) HttpStatus {
 	if verifyAuthID(authID) {
-		return getStatus(authID)
+		return getStatus()
 	} else {
 		return HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
 	}

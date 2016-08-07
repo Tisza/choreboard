@@ -78,17 +78,18 @@
                 // get the object and run through each chore
                 var chores = JSON.parse(e.target.responseText);
                 var board = $("board");
-                chores.chores.forEach(function(value, index) {
+                chores.forEach(function(value, index) {
+                    console.log(value)
                     // make the dom object for it and appendChild
                     var item = document.createElement("div");
                     item.chore = value; // saved for later
                     item.classList.add("item");
                     var title = document.createElement("h2");
-                    title.innerHTML = value.choreName;
+                    title.innerHTML = value.ChoreName;
                     item.appendChild(title);
                     var icon = document.createElement("p");
                     icon.classList.add("img");
-                    icon.innerHTML = value.choreName.substring(0, 1);
+                    icon.innerHTML = value.ChoreName.substring(0, 1);
                     // random colors are my favorite
                     var r = Math.round(Math.random() * 123);
                     var g = Math.round(Math.random() * 123);
@@ -98,13 +99,13 @@
                     var text = document.createElement("div");
                     item.appendChild(text);
                     var desc = document.createElement("p");
-                    desc.innerHTML = value.description;
+                    desc.innerHTML = value.Description;
                     desc.classList.add("desc");
                     text.appendChild(desc);
                     var who = document.createElement("p");
                     who.classList.add("who");
-                    if (value.active) {
-                        who.innerHTML = value.assignee;
+                    if (value.Active) {
+                        who.innerHTML = value.Assignee;
                         item.classList.add("active");
                     } else {
                         who.innerHTML = "Not assigned.";
@@ -175,9 +176,8 @@
                             }
                         } else {
                             // we reach the server, parse and save the response.
-                            console.log(e.target.responseText);
                             var res = JSON.parse(e.target.responseText);
-                            authid = res.authID;
+                            authid = res.AuthID;
                             document.cookie = authid;
                             callback();
                         }

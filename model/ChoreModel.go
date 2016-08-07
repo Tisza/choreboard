@@ -52,10 +52,10 @@ func GetUserStatus(authID string) ([]byte, HttpStatus) {
 	}, func(){}, authID)
 }
 
-func SetUserChore(authID string, choreName string, accept string) HttpStatus {
+func SetUserChore(authID string, choreName string, accept bool) HttpStatus {
 	return authFilterStatus(func(args ...string) HttpStatus {
 		return OK
-	}, authID, choreName, accept)
+	}, authID)
 }
 
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
@@ -69,7 +69,7 @@ func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 
 func LoginUser(friendlyName string, password string) ([]byte, HttpStatus){
 	authID := constructAuthID(friendlyName, password)
-	return authFilterJson(func(args ...string) interface{} {
+	return authFilterJson(func() interface{} {
 		if passwordCheck(authID, password) {
 				// everything checks out, return back the authID and OK status
 				return authID
@@ -79,21 +79,23 @@ func LoginUser(friendlyName string, password string) ([]byte, HttpStatus){
 			}
 	}, func() {
 		addUser(User{authID, friendlyName, password, "", "", 0})
-	}, authID, password)
+	}, authID)
 }
 
 func ReportChore(authID string, choreName string, mode string) HttpStatus {
 	return authFilterStatus(func(args ...string) HttpStatus {
 		return OK
-	}, authID, choreName, mode)
+	}, authID)
 }
 
 // ============================== Helpers ===================== //
 
 // MMMMMMMMMM
-func authFilterJson(getMarshalableObject func(args ...string) interface{}, optionalFailure func(),  authID string, args ...string) ([]byte, HttpStatus){
+func authFilterJson(getMarshalableObject func() interface{},
+					optionalFailure func(),
+					authID string, ) ([]byte, HttpStatus) {
 	if verifyAuthID(authID) {
-		return marshalAndValidate(getMarshalableObject(args...))
+		return marshalAndValidate(getMarshalableObject())
 	} else {
 		optionalFailure()
 		return []byte{}, HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
@@ -101,9 +103,10 @@ func authFilterJson(getMarshalableObject func(args ...string) interface{}, optio
 }
 
 // MMMMMMMMMM
-func authFilterStatus(getStatus func (args ...string) HttpStatus, authID string, args ...string) HttpStatus{
+func authFilterStatus(getStatus func () HttpStatus,
+						authID string) HttpStatus {
 	if verifyAuthID(authID) {
-		return getStatus(args...)
+		return getStatus()
 	} else {
 		return HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
 	}

@@ -49,14 +49,14 @@ func handleUserStatus(w http.ResponseWriter, r *http.Request) {
 
 func handleSignChore(w http.ResponseWriter, r *http.Request) {
 	/////// this is gross////
-	//var accept bool
-	//if r.Form[SIGN_CHORE_PARAMS[2]][0] == "true" {
-	//	accept = true
-	//} else {
-	//	accept = false
-	//}
+	var accept bool
+	if r.Form[SIGN_CHORE_PARAMS[2]][0] == "true" {
+		accept = true
+	} else {
+		accept = false
+	}
 	////////////////////////
-	status := model.SetUserChore(r.Form[SIGN_CHORE_PARAMS[0]][0], r.Form[SIGN_CHORE_PARAMS[1]][0], r.Form[SIGN_CHORE_PARAMS[2]][0])
+	status := model.SetUserChore(r.Form[SIGN_CHORE_PARAMS[0]][0], r.Form[SIGN_CHORE_PARAMS[1]][0], accept)
 	handleStatus(w, r, status)
 }
 

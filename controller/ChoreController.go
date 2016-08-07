@@ -16,9 +16,8 @@ TODO: implement handleLoginUser
 TODO: implement handleReportChore
 */
 
-var HOST_NAME, err = externalIP()
 var PORT string = "8080"
-var HOST = HOST_NAME + ":" + PORT
+var HOST = ":" + PORT
 
 var USER_STATUS_PARAMS = []string{"authID"}
 var SIGN_CHORE_PARAMS = []string{"authID", "choreName", "accept"}
@@ -42,6 +41,7 @@ func main() {
 
 func middleware(next http.HandlerFunc, expectedParams []string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Access-Control-Allow-Origin:", "*")
 		if !isBadRequest(w, r, expectedParams) {
 			next.ServeHTTP(w, r)
 		}

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"choreboard/model"
-	"github.com/golang-collections/go-datastructures/set"
 	"strconv"
+	"github.com/emirpasic/gods/sets/hashset"
 )
 
 /**
@@ -111,8 +111,8 @@ func printRequestTraits(r *http.Request) {
 	fmt.Println()
 }
 
-func getParams(r *http.Request) *set.Set {
-	params := set.New()
+func getParams(r *http.Request) *hashset.Set {
+	params := hashset.New()
 	for param := range r.Form {
 		//fmt.Println(param)
 		params.Add(param)
@@ -143,7 +143,7 @@ func isBadRequest(w http.ResponseWriter, r *http.Request, expectedParams []strin
 	}
 }
 
-func eq(a *set.Set, b []string) bool {
+func eq(a *hashset.Set, b []string) bool {
 	if a == nil && b == nil {
 		return true;
 	}
@@ -152,11 +152,11 @@ func eq(a *set.Set, b []string) bool {
 		return false;
 	}
 
-	if int(a.Len()) != len(b) {
+	if int(a.Size()) != len(b) {
 		return false
 	}
 	for _, val := range b {
-		if !a.Exists(val) {
+		if !a.Contains(val) {
 			return false
 		}
 	}

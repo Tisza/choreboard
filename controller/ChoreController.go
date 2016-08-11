@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"choreboard/model"
+	"github.com/golang-collections/go-datastructures/set"
 )
 
 /**
@@ -109,11 +110,11 @@ func printRequestTraits(r *http.Request) {
 	fmt.Println()
 }
 
-func getParams(r *http.Request) ([]string) {
-	params := make([]string, 0)
+func getParams(r *http.Request) *set.Set {
+	params := set.New()
 	for param := range r.Form {
 		//fmt.Println(param)
-		params = append(params, param)
+		params.Add(param)
 	}
 	return params
 }
@@ -128,7 +129,8 @@ func isBadRequest(w http.ResponseWriter, r *http.Request, expectedParams []strin
 	requestParams := getParams(r)
 	//fmt.Println("Request Parameters: ", requestParams)
 	//fmt.Println()
-	if !sliceEq(requestParams, expectedParams) {
+
+	if !eq(requestParams, expectedParams) {
 		// uh oh, we got a 400 Bad Request over 'ere
 		//println("bad request")
 		//fmt.Printf("%s\n", requestParams)
@@ -140,7 +142,7 @@ func isBadRequest(w http.ResponseWriter, r *http.Request, expectedParams []strin
 	}
 }
 
-func sliceEq(a, b []string) bool {
+func eq(a *set.Set, b []string) bool {
 	if a == nil && b == nil {
 		return true;
 	}
@@ -149,52 +151,13 @@ func sliceEq(a, b []string) bool {
 		return false;
 	}
 
-	if len(a) != len(b) {
+	if int(a.Len()) != len(b) {
 		return false
 	}
-
-	for i := range a {
-		if a[i] != b[i] {
+	for _, val := range b {
+		if !a.Exists(val) {
 			return false
 		}
 	}
-
 	return true
 }
-
-//func externalIP() (string, error) {
-//	ifaces, err := net.Interfaces()
-//	if err != nil {
-//		return "", err
-//	}
-//	for _, iface := range ifaces {
-//		if iface.Flags&net.FlagUp == 0 {
-//			continue // interface down
-//		}
-//		if iface.Flags&net.FlagLoopback != 0 {
-//			continue // loopback interface
-//		}
-//		addrs, err := iface.Addrs()
-//		if err != nil {
-//			return "", err
-//		}
-//		for _, addr := range addrs {
-//			var ip net.IP
-//			switch v := addr.(type) {
-//			case *net.IPNet:
-//				ip = v.IP
-//			case *net.IPAddr:
-//				ip = v.IP
-//			}
-//			if ip == nil || ip.IsLoopback() {
-//				continue
-//			}
-//			ip = ip.To4()
-//			if ip == nil {
-//				continue // not an ipv4 address
-//			}
-//			return ip.String(), nil
-//		}
-//	}
-//	return "", errors.New("are you connected to the network?")
-//}

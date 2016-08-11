@@ -29,6 +29,11 @@ var REPORT_CHORE_PARAMS = []string{"authID", "choreName", "mode"}
 
 func main() {
 
+	// TODO: figure out a way to refactor channel initialization to model
+	model.UsersChan <- model.Users
+	model.ChoresChan <- model.Chores
+	model.ChoreQChan <- model.ChoreQ
+
 	http.HandleFunc("/userStatus", badRequestFilter(handleUserStatus, USER_STATUS_PARAMS))
 	http.HandleFunc("/signChore", badRequestFilter(handleSignChore, SIGN_CHORE_PARAMS))
 	http.HandleFunc("/choreBoard", badRequestFilter(handleChoreBoard, CHORE_BOARD_PARAMS))

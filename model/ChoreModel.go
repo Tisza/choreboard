@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"fmt"
+	"container/list"
 )
 
 /**
@@ -43,23 +44,36 @@ func (e HttpStatus) Error() string {
 
 var OK = HttpStatus{200, "OK"}
 
+var Users = map[string](User){"drew:bass": User{"drew:bass", "drew", "bass", "Dishes", "2016-08-09T00:00:00Z", 0}} // key: authId
+
+var Chores = map[string](Chore){"Dishes": Chore{"drew", 3, true, "2016-08-09T02:00:00Z", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"}} // key: choreName
+
+var ChoreQ = list.New()
+
+var UsersChan = make(chan map[string](User), 1)
+
+var ChoresChan = make(chan map[string](Chore), 1)
+
+var ChoreQChan = make(chan *list.List, 1)
+
 // ======================== Public Functions =============== //
 
 // returns JSON object with information about a particular user
 func GetUserStatus(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func() interface{} {
-		return User{authID, "Bob", "chickens", "", "", 0}
+	return authFilterJson(func(users map[string](User), chores map[string](Chore), choreQ *list.List) interface{} {
+		user := users[authID]
+		return user
 	}, func(){}, authID)
 }
 
 func SetUserChore(authID string, choreName string, accept bool) HttpStatus {
-	return authFilterStatus(func() HttpStatus {
+	return authFilterStatus(func(users map[string](User), chores map[string](Chore), choreQ *list.List) HttpStatus {
 		return OK
 	}, authID)
 }
 
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func() interface{} {
+	return authFilterJson(func(users map[string](User), chores map[string](Chore), choreQ *list.List) interface{} {
 		chore1 := Chore{"Bob", 9001, true, "2016-08-03T14:00:00Z", "Take out the trash", "1"}
 		chore2 := Chore{"Logan", 2, true, "2016-07-03T14:00:00Z", "Be pretty", "2"}
 		chore3 := Chore{"", 500, false, "2016-08-01T14:00:00Z", "Clean the sink", "3"}
@@ -69,7 +83,7 @@ func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 
 func LoginUser(friendlyName string, password string) ([]byte, HttpStatus){
 	authID := constructAuthID(friendlyName, password)
-	return authFilterJson(func() interface{} {
+	return authFilterJson(func(users map[string](User), chores map[string](Chore), choreQ *list.List) interface{} {
 		if passwordCheck(authID, password) {
 				// everything checks out, return back the authID and OK status
 				return authID
@@ -83,7 +97,7 @@ func LoginUser(friendlyName string, password string) ([]byte, HttpStatus){
 }
 
 func ReportChore(authID string, choreName string, mode string) HttpStatus {
-	return authFilterStatus(func() HttpStatus {
+	return authFilterStatus(func(users map[string](User), chores map[string](Chore), choreQ *list.List) HttpStatus {
 		return OK
 	}, authID)
 }
@@ -91,22 +105,32 @@ func ReportChore(authID string, choreName string, mode string) HttpStatus {
 // ============================== Helpers ===================== //
 
 // MMMMMMMMMM
-func authFilterJson(getMarshalableObject func() interface{},
+// synchronously acquires and releases internal data structures outside of given function
+func authFilterJson(getMarshalableObject func(map[string](User), map[string](Chore), *list.List) interface{},
 					optionalFailure func(),
 					authID string) ([]byte, HttpStatus) {
-	if verifyAuthID(authID) {
-		return marshalAndValidate(getMarshalableObject())
+	users, chores, choreQ := aqcuireInternals()
+	if verifyAuthID(authID, users) {
+		bytes, status := marshalAndValidate(getMarshalableObject(users, chores, choreQ))
+		releaseInternals(users, chores, choreQ)
+		return bytes, status
 	} else {
+		releaseInternals(users, chores, choreQ)
 		optionalFailure()
 		return []byte{}, HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
 	}
 }
 
 // MMMMMMMMMM
-func authFilterStatus(getStatus func () HttpStatus, authID string) HttpStatus {
-	if verifyAuthID(authID) {
-		return getStatus()
+// synchronously acquires and releases internal data structures outside of given function
+func authFilterStatus(getStatus func(map[string](User), map[string](Chore), *list.List) HttpStatus, authID string) HttpStatus {
+	users, chores, choreQ := aqcuireInternals()
+	if verifyAuthID(authID, users) {
+		status := getStatus(users, chores, choreQ)
+		releaseInternals(users, chores, choreQ)
+		return status
 	} else {
+		releaseInternals(users, chores, choreQ)
 		return HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
 	}
 }
@@ -124,8 +148,9 @@ func deconstructAuthID(authID string) (string, string) {
 	return split[0], split[1]
 }
 
-func verifyAuthID(authID string) bool {
-	return true
+func verifyAuthID(authID string, users map[string](User)) bool {
+	_, ok := users[authID]
+	return ok
 }
 
 func passwordCheck(authID string, password string) bool {
@@ -134,6 +159,21 @@ func passwordCheck(authID string, password string) bool {
 
 func addUser(u User) {
 
+}
+
+// gets internal data structures synchronously with other goroutine handlers
+func aqcuireInternals() (map[string](User), map[string](Chore), *list.List) {
+	users := <-UsersChan
+	chores := <-ChoresChan
+	choreQ := <-ChoreQChan
+	return users, chores, choreQ
+}
+
+// releases internal data structures in the reverse order in which they were acquired
+func releaseInternals(users map[string](User), chores map[string](Chore), choreQ *list.List) {
+	ChoreQChan <- choreQ
+	ChoresChan <- chores
+	UsersChan <- users
 }
 
 func marshalAndValidate(v interface{}) ([]byte, HttpStatus) {

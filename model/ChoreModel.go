@@ -19,9 +19,24 @@ type User struct {
 	AuthID string
 	FriendlyName string
 	Password string
-	Chore string        // assigned chore name, otherwise empty string
+	AssignedChore string        // assigned chore name, otherwise empty string
 	Deadline string     // UTC local time for chore deadline if assigned, otherwise empty string
 	Shame int
+}
+
+func (u *User) isAssigned() bool {
+	return u.AssignedChore != INVALID_CHORE
+}
+
+func (u *User) unassign() *User {
+	u.AssignedChore = INVALID_CHORE
+	return u
+}
+
+func (u *User) assignChore(choreName string, deadline string) *User {
+	u.AssignedChore = choreName
+	u.Deadline = deadline
+	return u
 }
 
 type Chore struct {
@@ -44,36 +59,46 @@ func (e HttpStatus) Error() string {
 
 var OK = HttpStatus{200, "OK"}
 
-var Users = map[string](User){"drew:bass": User{"drew:bass", "drew", "bass", "Dishes", "2016-08-09T00:00:00Z", 0}} // key: authId
+var Users = map[string](*User){"drew:bass": &User{"drew:bass", "drew", "bass", INVALID_CHORE, "", 0}} // key: authId
 
-var Chores = map[string](Chore){"Dishes": Chore{"drew", 3, true, "2016-08-09T02:00:00Z", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"}} // key: choreName
+var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, true, "2016-08-09T02:00:00Z", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"}} // key: choreName
 
 var ChoreQ = list.New()
 
-var UsersChan = make(chan map[string](User), 1)
+var UsersChan = make(chan map[string](*User), 1)
 
-var ChoresChan = make(chan map[string](Chore), 1)
+var ChoresChan = make(chan map[string](*Chore), 1)
 
 var ChoreQChan = make(chan *list.List, 1)
+
+const INVALID_CHORE = ""
+const INVALID_ASSIGNEE = ""
 
 // ======================== Public Functions =============== //
 
 // returns JSON object with information about a particular user
 func GetUserStatus(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](User), chores map[string](Chore), choreQ *list.List) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) interface{} {
 		user := users[authID]
 		return user
 	}, func(){}, authID)
 }
 
-func SetUserChore(authID string, choreName string, accept bool) HttpStatus {
-	return authFilterStatus(func(users map[string](User), chores map[string](Chore), choreQ *list.List) HttpStatus {
-		return OK
+func AcceptChore(authID string, choreName string, deadline string) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) HttpStatus {
+		if choreExists(choreName, chores) {
+			if !users[authID].isAssigned() {
+				users[authID].assignChore(choreName, deadline)
+				return OK
+			}
+			return HttpStatus{500, fmt.Sprintf("user is already assigned to a chore: %s", users[authID].AssignedChore)}
+		}
+		return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist", choreName)}
 	}, authID)
 }
 
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](User), chores map[string](Chore), choreQ *list.List) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) interface{} {
 		chore1 := Chore{"Bob", 9001, true, "2016-08-03T14:00:00Z", "Take out the trash", "1"}
 		chore2 := Chore{"Logan", 2, true, "2016-07-03T14:00:00Z", "Be pretty", "2"}
 		chore3 := Chore{"", 500, false, "2016-08-01T14:00:00Z", "Clean the sink", "3"}
@@ -83,7 +108,7 @@ func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 
 func LoginUser(friendlyName string, password string) ([]byte, HttpStatus){
 	authID := constructAuthID(friendlyName, password)
-	return authFilterJson(func(users map[string](User), chores map[string](Chore), choreQ *list.List) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) interface{} {
 		if passwordCheck(authID, password) {
 				// everything checks out, return back the authID and OK status
 				return authID
@@ -97,7 +122,7 @@ func LoginUser(friendlyName string, password string) ([]byte, HttpStatus){
 }
 
 func ReportChore(authID string, choreName string, mode string) HttpStatus {
-	return authFilterStatus(func(users map[string](User), chores map[string](Chore), choreQ *list.List) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) HttpStatus {
 		return OK
 	}, authID)
 }
@@ -106,7 +131,7 @@ func ReportChore(authID string, choreName string, mode string) HttpStatus {
 
 // MMMMMMMMMM
 // synchronously acquires and releases internal data structures outside of given function
-func authFilterJson(getMarshalableObject func(map[string](User), map[string](Chore), *list.List) interface{},
+func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*Chore), *list.List) interface{},
 					optionalFailure func(),
 					authID string) ([]byte, HttpStatus) {
 	users, chores, choreQ := aqcuireInternals()
@@ -123,7 +148,7 @@ func authFilterJson(getMarshalableObject func(map[string](User), map[string](Cho
 
 // MMMMMMMMMM
 // synchronously acquires and releases internal data structures outside of given function
-func authFilterStatus(getStatus func(map[string](User), map[string](Chore), *list.List) HttpStatus, authID string) HttpStatus {
+func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *list.List) HttpStatus, authID string) HttpStatus {
 	users, chores, choreQ := aqcuireInternals()
 	if verifyAuthID(authID, users) {
 		status := getStatus(users, chores, choreQ)
@@ -148,8 +173,13 @@ func deconstructAuthID(authID string) (string, string) {
 	return split[0], split[1]
 }
 
-func verifyAuthID(authID string, users map[string](User)) bool {
+func verifyAuthID(authID string, users map[string](*User)) bool {
 	_, ok := users[authID]
+	return ok
+}
+
+func choreExists(choreName string, chores map[string](*Chore)) bool {
+	_, ok := chores[choreName]
 	return ok
 }
 
@@ -162,7 +192,7 @@ func addUser(u User) {
 }
 
 // gets internal data structures synchronously with other goroutine handlers
-func aqcuireInternals() (map[string](User), map[string](Chore), *list.List) {
+func aqcuireInternals() (map[string](*User), map[string](*Chore), *list.List) {
 	users := <-UsersChan
 	chores := <-ChoresChan
 	choreQ := <-ChoreQChan
@@ -170,7 +200,7 @@ func aqcuireInternals() (map[string](User), map[string](Chore), *list.List) {
 }
 
 // releases internal data structures in the reverse order in which they were acquired
-func releaseInternals(users map[string](User), chores map[string](Chore), choreQ *list.List) {
+func releaseInternals(users map[string](*User), chores map[string](*Chore), choreQ *list.List) {
 	ChoreQChan <- choreQ
 	ChoresChan <- chores
 	UsersChan <- users

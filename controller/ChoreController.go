@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"net"
-	"errors"
 	"choreboard/model"
 )
 
@@ -21,7 +19,7 @@ var PORT string = "8080"
 var HOST = ":" + PORT
 
 var USER_STATUS_PARAMS = []string{"authID"}
-var SIGN_CHORE_PARAMS = []string{"authID", "choreName", "accept"}
+var ACCEPT_CHORE_PARAMS = []string{"authID", "choreName", "deadline"}
 var CHORE_BOARD_PARAMS = []string{"authID"}
 var LOGIN_USER_PARAMS = []string{"friendlyName", "password"}
 var REPORT_CHORE_PARAMS = []string{"authID", "choreName", "mode"}
@@ -35,7 +33,7 @@ func main() {
 	model.ChoreQChan <- model.ChoreQ
 
 	http.HandleFunc("/userStatus", badRequestFilter(handleUserStatus, USER_STATUS_PARAMS))
-	http.HandleFunc("/signChore", badRequestFilter(handleSignChore, SIGN_CHORE_PARAMS))
+	http.HandleFunc("/acceptChore", badRequestFilter(handleAcceptChore, ACCEPT_CHORE_PARAMS))
 	http.HandleFunc("/choreBoard", badRequestFilter(handleChoreBoard, CHORE_BOARD_PARAMS))
 	http.HandleFunc("/loginUser", badRequestFilter(handleLoginUser, LOGIN_USER_PARAMS))
 	http.HandleFunc("/reportChore", badRequestFilter(handleReportChore, REPORT_CHORE_PARAMS))
@@ -52,16 +50,8 @@ func handleUserStatus(w http.ResponseWriter, r *http.Request) {
 	handleJson(w, json, status)
 }
 
-func handleSignChore(w http.ResponseWriter, r *http.Request) {
-	/////// this is gross////
-	var accept bool
-	if r.Form[SIGN_CHORE_PARAMS[2]][0] == "true" {
-		accept = true
-	} else {
-		accept = false
-	}
-	////////////////////////
-	status := model.SetUserChore(r.Form[SIGN_CHORE_PARAMS[0]][0], r.Form[SIGN_CHORE_PARAMS[1]][0], accept)
+func handleAcceptChore(w http.ResponseWriter, r *http.Request) {
+	status := model.AcceptChore(r.Form[ACCEPT_CHORE_PARAMS[0]][0], r.Form[ACCEPT_CHORE_PARAMS[1]][0], r.Form[ACCEPT_CHORE_PARAMS[2]][0])
 	handleStatus(w, r, status)
 }
 
@@ -102,7 +92,7 @@ func handleJson(w http.ResponseWriter, json []byte, status model.HttpStatus) {
 
 func handleStatus(w http.ResponseWriter, r *http.Request, status model.HttpStatus) {
 	if status.Code != 200 {
-		http.NotFound(w, r)
+		http.Error(w, status.Description, status.Code)
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
@@ -140,6 +130,9 @@ func isBadRequest(w http.ResponseWriter, r *http.Request, expectedParams []strin
 	//fmt.Println()
 	if !sliceEq(requestParams, expectedParams) {
 		// uh oh, we got a 400 Bad Request over 'ere
+		//println("bad request")
+		//fmt.Printf("%s\n", requestParams)
+		//fmt.Printf("%s\n", expectedParams)
 		w.WriteHeader(http.StatusBadRequest)
 		return true
 	} else {
@@ -169,39 +162,39 @@ func sliceEq(a, b []string) bool {
 	return true
 }
 
-func externalIP() (string, error) {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return "", err
-	}
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 {
-			continue // interface down
-		}
-		if iface.Flags&net.FlagLoopback != 0 {
-			continue // loopback interface
-		}
-		addrs, err := iface.Addrs()
-		if err != nil {
-			return "", err
-		}
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				ip = v.IP
-			case *net.IPAddr:
-				ip = v.IP
-			}
-			if ip == nil || ip.IsLoopback() {
-				continue
-			}
-			ip = ip.To4()
-			if ip == nil {
-				continue // not an ipv4 address
-			}
-			return ip.String(), nil
-		}
-	}
-	return "", errors.New("are you connected to the network?")
-}
+//func externalIP() (string, error) {
+//	ifaces, err := net.Interfaces()
+//	if err != nil {
+//		return "", err
+//	}
+//	for _, iface := range ifaces {
+//		if iface.Flags&net.FlagUp == 0 {
+//			continue // interface down
+//		}
+//		if iface.Flags&net.FlagLoopback != 0 {
+//			continue // loopback interface
+//		}
+//		addrs, err := iface.Addrs()
+//		if err != nil {
+//			return "", err
+//		}
+//		for _, addr := range addrs {
+//			var ip net.IP
+//			switch v := addr.(type) {
+//			case *net.IPNet:
+//				ip = v.IP
+//			case *net.IPAddr:
+//				ip = v.IP
+//			}
+//			if ip == nil || ip.IsLoopback() {
+//				continue
+//			}
+//			ip = ip.To4()
+//			if ip == nil {
+//				continue // not an ipv4 address
+//			}
+//			return ip.String(), nil
+//		}
+//	}
+//	return "", errors.New("are you connected to the network?")
+//}

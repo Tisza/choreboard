@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"choreboard/model"
 	"github.com/golang-collections/go-datastructures/set"
+	"strconv"
 )
 
 /**
@@ -85,7 +86,7 @@ func badRequestFilter(next http.HandlerFunc, expectedParams []string) http.Handl
 
 func handleJson(w http.ResponseWriter, json []byte, status model.HttpStatus) {
 	if status.Code != 200 {
-		http.Error(w, status.Description, status.Code)
+		http.Error(w, strconv.Itoa(status.Code) + ": " + status.Description, status.Code)
 	} else {
 		fmt.Fprintf(w, "%s", json)
 	}
@@ -93,7 +94,7 @@ func handleJson(w http.ResponseWriter, json []byte, status model.HttpStatus) {
 
 func handleStatus(w http.ResponseWriter, r *http.Request, status model.HttpStatus) {
 	if status.Code != 200 {
-		http.Error(w, status.Description, status.Code)
+		http.Error(w, strconv.Itoa(status.Code) + ": " + status.Description, status.Code)
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}

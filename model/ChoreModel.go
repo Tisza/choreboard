@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"container/list"
+	"github.com/Workiva/go-datastructures/queue"
 )
 
 /**
 TODO: more obfuscating authID reviersible hash
 TODO: hold persistent data in .json files
+TODO: write unit tests
+TODO; write integration tests
 */
 
 // =================== Data Types ========================== //
@@ -22,6 +24,7 @@ type User struct {
 	AssignedChore string        // assigned chore name, otherwise empty string
 	Deadline string     // UTC local time for chore deadline if assigned, otherwise empty string
 	Shame int
+	Summoned bool
 }
 
 func (u *User) isAssigned() bool {
@@ -48,6 +51,10 @@ type Chore struct {
 	ChoreName    string
 }
 
+func (c *Chore) isActive() bool {
+	return c.Assignee != INVALID_ASSIGNEE
+}
+
 type HttpStatus struct {
 	Code        int
 	Description string
@@ -59,17 +66,17 @@ func (e HttpStatus) Error() string {
 
 var OK = HttpStatus{200, "OK"}
 
-var Users = map[string](*User){"drew:bass": &User{"drew:bass", "drew", "bass", INVALID_CHORE, "", 0}} // key: authId
+var Users = map[string](*User){"drew:bass": &User{"drew:bass", "drew", "bass", INVALID_CHORE, "", 0, false}} // key: authId
 
-var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, true, "2016-08-09T02:00:00Z", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"}} // key: choreName
+var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, false, "2016-08-09T02:00:00Z", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"}} // key: choreName
 
-var ChoreQ = list.New()
+var TodoChoreQ = queue.New(0)
 
 var UsersChan = make(chan map[string](*User), 1)
 
 var ChoresChan = make(chan map[string](*Chore), 1)
 
-var ChoreQChan = make(chan *list.List, 1)
+var TodoChoreQChan = make(chan *queue.Queue, 1)
 
 const INVALID_CHORE = ""
 const INVALID_ASSIGNEE = ""
@@ -78,17 +85,29 @@ const INVALID_ASSIGNEE = ""
 
 // returns JSON object with information about a particular user
 func GetUserStatus(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue) interface{} {
 		user := users[authID]
 		return user
 	}, func(){}, authID)
 }
 
-func AcceptChore(authID string, choreName string, deadline string) HttpStatus {
-	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) HttpStatus {
+func AcceptChore(authID string, deadline string) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue) HttpStatus {
+
+		if choreQ.Empty() {
+			return HttpStatus{500, fmt.Sprint("queue of to-do chores is empty. nothing to accept")}
+		}
+
+		tmp, _ := choreQ.Peek()
+		choreName := tmp.(string)
+		user := users[authID]
+
 		if choreExists(choreName, chores) {
-			if !users[authID].isAssigned() {
-				users[authID].assignChore(choreName, deadline)
+			if !user.isAssigned() {
+				user.assignChore(choreName, deadline)
+				user.Summoned = false
+				choreQ.Get(1)  // throw it on the GROUND
+
 				return OK
 			}
 			return HttpStatus{500, fmt.Sprintf("user is already assigned to a chore: %s", users[authID].AssignedChore)}
@@ -97,8 +116,12 @@ func AcceptChore(authID string, choreName string, deadline string) HttpStatus {
 	}, authID)
 }
 
+func DeclineChore(authID string) HttpStatus {
+	return OK
+}
+
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue) interface{} {
 		chore1 := Chore{"Bob", 9001, true, "2016-08-03T14:00:00Z", "Take out the trash", "1"}
 		chore2 := Chore{"Logan", 2, true, "2016-07-03T14:00:00Z", "Be pretty", "2"}
 		chore3 := Chore{"", 500, false, "2016-08-01T14:00:00Z", "Clean the sink", "3"}
@@ -108,7 +131,7 @@ func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 
 func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 	authID := constructAuthID(friendlyName, password)
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue) interface{} {
 		if passwordCheck(authID, password) {
 				// everything checks out, return back the authID and OK status
 				return authID
@@ -117,12 +140,28 @@ func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 				return []byte{}
 			}
 	}, func() {
-		addUser(User{authID, friendlyName, password, "", "", 0})
+		addUser(User{authID, friendlyName, password, "", "", 0, false})
 	}, authID)
 }
 
 func ReportChore(authID string, choreName string, mode string) HttpStatus {
-	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue) HttpStatus {
+		if choreExists(choreName, chores) && !chores[choreName].isActive() && choreQContains(choreQ, choreName) {
+			user := users[authID]
+			if user.isAssigned() {
+				// chore exists and is inactive, so we'll put it into the queue of to-do chores, and update appropriate objects
+				choreQ.Put(choreName)
+				user.Summoned = true
+
+				return OK
+			}
+			return HttpStatus{500, fmt.Sprintf("user '%s' is already assigned to a chore: %s", user.FriendlyName, user.AssignedChore)}
+		} else {
+			// In V1, a fixed number of chores exist, so we're not allowing clients to define their own chores on reporting
+			// mode is not used in V1
+			
+			return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist, is already assigned, or is already in the queue of to-do chores", choreName)}
+		}
 		return OK
 	}, authID)
 }
@@ -132,7 +171,7 @@ func ReportChore(authID string, choreName string, mode string) HttpStatus {
 
 // MMMMMMMMMM
 // synchronously acquires and releases internal data structures outside of given function
-func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*Chore), *list.List) interface{},
+func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*Chore), *queue.Queue) interface{},
 					optionalFailure func(),
 					authID string) ([]byte, HttpStatus) {
 	users, chores, choreQ := aqcuireInternals()
@@ -149,7 +188,7 @@ func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*C
 
 // MMMMMMMMMM
 // synchronously acquires and releases internal data structures outside of given function
-func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *list.List) HttpStatus, authID string) HttpStatus {
+func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *queue.Queue) HttpStatus, authID string) HttpStatus {
 	users, chores, choreQ := aqcuireInternals()
 	if verifyAuthID(authID, users) {
 		status := getStatus(users, chores, choreQ)
@@ -184,6 +223,16 @@ func choreExists(choreName string, chores map[string](*Chore)) bool {
 	return ok
 }
 
+func choreQContains(choreQ *queue.Queue, choreName interface{}) bool {
+	choreNames, _ := choreQ.Get(choreQ.Len())
+	for name := range choreNames {
+		if name == choreName {
+			return true
+		}
+	}
+	return false
+}
+
 func passwordCheck(authID string, password string) bool {
 	return true
 }
@@ -193,16 +242,16 @@ func addUser(u User) {
 }
 
 // gets internal data structures synchronously with other goroutine handlers
-func aqcuireInternals() (map[string](*User), map[string](*Chore), *list.List) {
+func aqcuireInternals() (map[string](*User), map[string](*Chore), *queue.Queue) {
 	users := <-UsersChan
 	chores := <-ChoresChan
-	choreQ := <-ChoreQChan
+	choreQ := <-TodoChoreQChan
 	return users, chores, choreQ
 }
 
 // releases internal data structures in the reverse order in which they were acquired
-func releaseInternals(users map[string](*User), chores map[string](*Chore), choreQ *list.List) {
-	ChoreQChan <- choreQ
+func releaseInternals(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue) {
+	TodoChoreQChan <- choreQ
 	ChoresChan <- chores
 	UsersChan <- users
 }

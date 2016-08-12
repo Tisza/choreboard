@@ -28,11 +28,12 @@
 
         // look up their login info
         authid = document.cookie;
+        
         if (authid == "") {
             // new user
-            registerUser("", populateChoreChart);
+            registerUser("", displaySwitch);
         } else {
-            populateChoreChart();
+            displaySwitch();
         }
     });
 
@@ -65,6 +66,97 @@
     // shortcut for returning id elements
     function $(ele) {
         return document.getElementById("board");
+    }
+
+    // gets a user's status and decides which ui to display (choreboard or decidechore)
+    function displaySwitch() {
+        var th = throbber();
+        ajax("http://" + BACKEND + "/userStatus?authID=" + authid, function(e) {
+            th.stop();
+            if (e.target.status == 200) {
+                var usr = JSON.parse(e.target.responseText);
+                if (usr.Summoned) {
+                    decideChore();
+                } else {
+                    populateChoreChart();
+                }
+            } else {
+                error(e.target.status, e.target.statusText);
+            }
+        });
+    }
+
+    // clears and loads a display for deciding to or not to do a chore
+    function decideChore() {
+        var form = document.createElement("form");
+        var label = document.createElement("label");
+        label.innerHTML = "deadline.";
+        form.appendChild(label);
+        var deadline = document.createElement("input");
+        deadline.type = "range";
+        deadline.min = "1";
+        deadline.max = "72";
+        deadline.value = "1";
+        deadline.id = "timespan";
+        var timeBox = document.createElement("p");
+        timeBox.id = "timedisplay";
+        timeBox.innerHTML = "Deadline.";
+        deadline.addEventListener("input", function(e) {
+            var val = deadline.value;
+            var now = new Date(Date.now() + 3600000 * val);
+            timeBox.innerHTML = now.toLocaleTimeString() + " " + now.toDateString();
+        });
+        timeBox.interval = setInterval(tickUpdate, 1000, timeBox, function() {
+            var val = deadline.value;
+            var now = new Date(Date.now() + 3600000 * val);
+            timeBox.innerHTML = now.toLocaleTimeString() + " " + now.toDateString();
+        });
+        form.appendChild(deadline);
+        form.appendChild(timeBox);
+        var accept = document.createElement("div");
+        accept.innerHTML = "Accept";
+        accept.id = "accept";
+        accept.addEventListener("click", function(e) {
+            var val = deadline.value;
+            ajax("http://" + BACKEND + "/accept?authID=" + authid + "&deadline=" +
+                new Date(Date.now() + 3600000 * val).toUTCString(),
+            function(r) {
+                if (r.target.status == 200) {
+                    populateChoreChart();
+                } else {
+                    error(e.status, e.statusText);
+                }
+            });
+        });
+        var deny = document.createElement("div");
+        deny.innerHTML = "Decline";
+        deny.id = "deny";
+        deny.addEventListener("click", function(e) {
+            ajax("http://" + BACKEND + "/deny?authID=" + authid, 
+            function(r) {
+                if (r.target.status == 200) {
+                    populateChoreChart();
+                } else {
+                    error(e.status, e.statusText);
+                }
+            });
+        });
+        accept.classList.add("button");
+        deny.classList.add("button");
+        form.appendChild(accept);
+        form.appendChild(deny);
+
+        $("wrapper").appendChild(form);
+    }
+
+    // Interval event that calls callback, stops on element DOM removal
+    // requires element has interval field set to the interval id
+    function tickUpdate(element, callback) {
+        if (element.parentNode == null) {
+            clearInterval(element.interval);
+        }
+        callback();
+
     }
 
     // re-writes the main wrapper to display the current chore-chart.
@@ -210,7 +302,7 @@
             } else {
                 password = input.value;
                 // remove the prompt and query the backend
-                nono.parentNode.removeChild(nono);
+                prompt.kill();
                 
                 ajax("http://" + BACKEND + "/loginUser?friendlyName=" + 
                     friendlyName + "&password=" + password,

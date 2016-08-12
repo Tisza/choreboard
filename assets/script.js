@@ -105,8 +105,10 @@
                     var who = document.createElement("p");
                     who.classList.add("who");
                     if (value.Active) {
-                        who.innerHTML = value.Assignee;
                         item.classList.add("active");
+                    }
+                    if (value.Assignee) {
+                        who.innerHTML = value.Assignee;
                     } else {
                         who.innerHTML = "Not assigned.";
                     }
@@ -150,6 +152,7 @@
                     function(e) {
                         if (e.target.status == 200) {
                             chore.dom.classList.remove("active");
+                            chore.Active = false;
                         } else {
                             console.log(e);
                             error(e.target.status, e.target.statusText);
@@ -166,6 +169,7 @@
                     function(e) {
                         if (e.target.status == 200) {
                             chore.dom.classList.add("active");
+                            chore.Active = true;
                         } else {
                             console.log(e);
                             error(e.target.status, e.target.statusText);

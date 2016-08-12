@@ -112,6 +112,10 @@
                     }
                     text.appendChild(who);
                     board.appendChild(item);
+                    value.dom = item;
+                    item.addEventListener("click", function(e) {
+                        promptChore(value, e);
+                    });
                 });
             // incorrect auth id
             } else if (e.target.status == 403) {
@@ -126,16 +130,60 @@
         });
     }
 
+    // event listener for choreboard items to flip/flop the chore value
+    // REQUIRES: chore.dom to be set to the dom element it is firing for.
+    function promptChore(chore, event) {
+        console.log(chore);
+        console.log(event);
+        var prompt = newPrompt(true);
+        var text = document.createElement("p");
+        text.style.fontWeight = "900";
+        var button = document.createElement("div");
+        button.classList.add("promptAction");
+        if (chore.Active) {
+            text.innerHTML = "Did you " + chore.ChoreName + "?";
+            button.innerHTML = "I did " + chore.ChoreName;
+            button.addEventListener("click", function() {
+                prompt.kill();
+                ajax("http://" + BACKEND + "/reportChore?authID=" + 
+                    authid + "&choreName=" + chore.ChoreName + "&mode=false", 
+                    function(e) {
+                        if (e.target.status == 200) {
+                            chore.dom.classList.remove("active");
+                        } else {
+                            console.log(e);
+                            error(e.target.status, e.target.statusText);
+                        }
+                    });
+            });
+        } else {
+            text.innerHTML = "Does " + chore.ChoreName + " need to be done?";
+            button.innerHTML = chore.ChoreName + " needs to be done.";
+            button.addEventListener("click", function() {
+                prompt.kill();
+                ajax("http://" + BACKEND + "/reportChore?authID=" + 
+                    authid + "&choreName=" + chore.ChoreName + "&mode=true", 
+                    function(e) {
+                        if (e.target.status == 200) {
+                            chore.dom.classList.add("active");
+                        } else {
+                            console.log(e);
+                            error(e.target.status, e.target.statusText);
+                        }
+                    });
+            });
+        }
+        prompt.appendChild(text);
+        prompt.appendChild(button);
+    }
+
     // registers a user, either creating a new account or reauthenticating them
     // takes a string to display for the first prompt, or empty string for the 
     // default prompt, and a callback after a successful registration. 
     // Will continue to query backend server and prompt until successful. 
     function registerUser(str, callback) {
         // create the prompts
-        var nono = document.createElement("div");
-        nono.id = "nonosquare";
-        var prompt = document.createElement("div");
-        prompt.id = "prompt";
+        var prompt = newPrompt(false);
         var text = document.createElement("p");
         text.innerHTML = (str? str : "Enter a friendly name:");
         prompt.appendChild(text);
@@ -193,27 +241,48 @@
 
         // put it all together and display the prompt
         prompt.appendChild(input);
-        nono.appendChild(prompt);
-        document.body.insertBefore(nono, null);
         input.focus();
+    }
+
+    // creates and returns a prompt box for customization.
+    // use prompt.kill() to remove the prompt box.
+    function newPrompt(exitable) {
+        var prompt = document.createElement("div");
+        var nono = document.createElement("div");
+        if (exitable) {
+            var ex = document.createElement("div");
+            ex.id = "exitBox";
+            prompt.appendChild(ex);
+            ex.addEventListener("click", function() {
+                nono.parentNode.removeChild(nono);
+            });
+            nono.addEventListener("click", function(e) {
+                if (e.target.id == "nonosquare") {
+                    nono.parentNode.removeChild(nono);
+                }
+            });
+        }
+        prompt.id = "prompt";
+        nono.id = "nonosquare";
+        nono.appendChild(prompt);
+        document.body.appendChild(nono);
+        prompt.kill = function() {
+            nono.parentNode.removeChild(nono);
+        }
+        return prompt;
     }
 
     // presents a non-closable fatal error to the user
     function error(title, body) {
-        var prompt = document.createElement("div");
-        var nono = document.createElement("div");
+        var prompt = newPrompt(false);
         var head = document.createElement("p");
         var text = document.createElement("p");
-        prompt.id = "prompt";
-        nono.id = "nonosquare";
         prompt.style.backgroundColor = "rgba(255, 0, 0, 0.5)";
         head.style.fontWeight = "900";
         head.innerHTML = title;
         text.innerHTML = body;
         prompt.appendChild(head);
         prompt.appendChild(text);
-        nono.appendChild(prompt);
-        document.body.appendChild(nono);
     }
 
     // function for setInterval on throbbers to alter its color

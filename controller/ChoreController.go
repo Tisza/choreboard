@@ -1,51 +1,54 @@
 package main
 
 import (
+	"choreboard/model"
 	"fmt"
 	"net/http"
-	"choreboard/model"
 	"strconv"
 	"github.com/emirpasic/gods/sets/hashset"
 )
 
 /**
-	TODO: implement handleUserStatus
-	TODO: implement handleSignChore
-	TODO: implement handleChoreBoard
-	TODO: implement handleLoginUser
-	TODO: implement handleReportChore
- */
+TODO: implement handleUserStatus
+TODO: implement handleSignChore
+TODO: implement handleChoreBoard
+TODO: implement handleLoginUser
+TODO: implement handleReportChore
+*/
 
 //var HOST_NAME , err = externalIP()
 var PORT string = "8080"
 var HOST = ":" + PORT
 
 var USER_STATUS_PARAMS = []string{"authID"}
-var ACCEPT_CHORE_PARAMS = []string{"authID", "choreName", "deadline"}
+var ACCEPT_CHORE_PARAMS = []string{"authID", "deadline"}
+var DECLINE_CHORE_PARAMS = []string{"authID"}
 var CHORE_BOARD_PARAMS = []string{"authID"}
 var LOGIN_USER_PARAMS = []string{"friendlyName", "password"}
-var REPORT_CHORE_PARAMS = []string{"authID", "choreName", "mode"}
-
+var REPORT_CHORE_PARAMS = []string{"authID", "choreName"}
+var DONE_WITH_CHORE_PARAMS = []string{"authID", "choreName"}
 
 func main() {
 
 	// TODO: figure out a way to refactor channel initialization to model
 	model.UsersChan <- model.Users
 	model.ChoresChan <- model.Chores
-	model.ChoreQChan <- model.ChoreQ
+	model.TodoChoreQChan <- model.TodoChoreQ
 
 	http.HandleFunc("/userStatus", badRequestFilter(handleUserStatus, USER_STATUS_PARAMS))
 	http.HandleFunc("/acceptChore", badRequestFilter(handleAcceptChore, ACCEPT_CHORE_PARAMS))
+	http.HandleFunc("/declineChore", badRequestFilter(handleDeclineChore, DECLINE_CHORE_PARAMS))
 	http.HandleFunc("/choreBoard", badRequestFilter(handleChoreBoard, CHORE_BOARD_PARAMS))
 	http.HandleFunc("/loginUser", badRequestFilter(handleLoginUser, LOGIN_USER_PARAMS))
 	http.HandleFunc("/reportChore", badRequestFilter(handleReportChore, REPORT_CHORE_PARAMS))
+	http.HandleFunc("/doneWithChore", badRequestFilter(handleDoneWithChore, DONE_WITH_CHORE_PARAMS))
 
 	fmt.Println("About to ListenAndServe on " + HOST)
-	http.ListenAndServe(HOST, nil)
+	err := http.ListenAndServe(HOST, nil)
+	fmt.Printf("%v", err)
 }
 
 //=============================== Handlers ===============================//
-
 
 func handleUserStatus(w http.ResponseWriter, r *http.Request) {
 	json, status := model.GetUserStatus(r.Form[USER_STATUS_PARAMS[0]][0])
@@ -53,7 +56,12 @@ func handleUserStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleAcceptChore(w http.ResponseWriter, r *http.Request) {
-	status := model.AcceptChore(r.Form[ACCEPT_CHORE_PARAMS[0]][0], r.Form[ACCEPT_CHORE_PARAMS[1]][0], r.Form[ACCEPT_CHORE_PARAMS[2]][0])
+	status := model.AcceptChore(r.Form[ACCEPT_CHORE_PARAMS[0]][0], r.Form[ACCEPT_CHORE_PARAMS[1]][0])
+	handleStatus(w, r, status)
+}
+
+func handleDeclineChore(w http.ResponseWriter, r *http.Request) {
+	status := model.DeclineChore(r.Form[DECLINE_CHORE_PARAMS[0]][0])
 	handleStatus(w, r, status)
 }
 
@@ -68,17 +76,21 @@ func handleLoginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleReportChore(w http.ResponseWriter, r *http.Request) {
-	status := model.ReportChore(r.Form[REPORT_CHORE_PARAMS[0]][0], r.Form[REPORT_CHORE_PARAMS[1]][0], r.Form[REPORT_CHORE_PARAMS[2]][0])
+	status := model.ReportChore(r.Form[REPORT_CHORE_PARAMS[0]][0], r.Form[REPORT_CHORE_PARAMS[1]][0])
 	handleStatus(w, r, status)
 }
 
+func handleDoneWithChore(w http.ResponseWriter, r *http.Request) {
+	status := model.DoneWithChore(r.Form[DONE_WITH_CHORE_PARAMS[0]][0], r.Form[DONE_WITH_CHORE_PARAMS[1]][0])
+	handleStatus(w, r, status)
+}
 
 //=============================== Helpers ===========================//
 
 func badRequestFilter(next http.HandlerFunc, expectedParams []string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Access-Control-Allow-Origin", "*")
 		if !isBadRequest(w, r, expectedParams) {
-			w.Header().Add("Access-Control-Allow-Origin", "*")
 			next.ServeHTTP(w, r)
 		}
 	})
@@ -145,13 +157,12 @@ func isBadRequest(w http.ResponseWriter, r *http.Request, expectedParams []strin
 
 func eq(a *hashset.Set, b []string) bool {
 	if a == nil && b == nil {
-		return true;
+		return true
 	}
 
 	if a == nil || b == nil {
-		return false;
+		return false
 	}
-
 	if int(a.Size()) != len(b) {
 		return false
 	}

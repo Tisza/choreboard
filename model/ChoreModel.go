@@ -8,6 +8,7 @@ import (
 	"github.com/Workiva/go-datastructures/queue"
 	"time"
 	"container/list"
+	"errors"
 )
 
 /**
@@ -53,9 +54,14 @@ func (u *User) unassign() {
 	u.Deadline = ""
 }
 
-func (u *User) assignChore(choreName string, deadline string) {
+func (u *User) acceptChore(choreName string, deadline string) {
 	u.AssignedChore = choreName
 	u.Deadline = deadline
+	u.Summoned = false
+}
+
+func (u *User) declineChore(choreShame int) {
+	u.Shame += choreShame
 	u.Summoned = false
 }
 
@@ -78,16 +84,12 @@ func (c *Chore) assignUser(userName string, reportTime string) {
 	c.ReportedTime = reportTime
 }
 
-type SummonsQueue struct {
-	queue *list.List
-}
-
-func initSummonsQueue(args... string) SummonsQueue {
+func initSummonsOrder(args... string) *list.List {
 	queue := list.New()
 	for arg := range args {
 		queue.PushBack(arg)
 	}
-	return SummonsQueue{queue}
+	return queue
 }
 
 // holds information to be returned to the client via HTTP response
@@ -121,29 +123,29 @@ var TodoChoreQ = queue.New(0)
 
 // a queue to provide a summoning order. Users that have been summoned and accept chores will be placed at the back of the queue,
 // whereas users that are summoned and decline chores will be placed at the front, so that they will be the next person notified to do work
-var SummoningOrder = initSummonsQueue("drew:bass", "logan:huskies", "katie:kittens")
+var SummoningOrder = initSummonsOrder("drew:bass", "logan:huskies", "katie:kittens")
 
 // channels used to synchronize access to other data structures between concurrently operating handlers
 var UsersChan = make(chan map[string](*User), 1)
 var ChoresChan = make(chan map[string](*Chore), 1)
 var TodoChoreQChan = make(chan *queue.Queue, 1)
-var SummoningOrderChan = make(chan SummonsQueue, 1)
+var SummoningOrderChan = make(chan *list.List, 1)
 
 
 // ======================== Public Functions =============== //
 
 // returns JSON object with information about a particular user
 func GetUserStatus(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder SummonsQueue) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) interface{} {
 		user := users[authID]
 		return user
 	}, func(){}, authID)
 }
 
-// assigns the first chore in the queue of to-do chores to the summoned user with authID returns 200 OK
+// assigns the first chore in the queue of to-do chores to the summoned user with authID, and returns 200 OK
 // otherwise returns 500 HttpStatus with error message
 func AcceptChore(authID string, deadline string) HttpStatus {
-	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder SummonsQueue) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) HttpStatus {
 
 		if choreQ.Empty() {
 			return HttpStatus{500, fmt.Sprint("queue of to-do chores is empty. nothing to accept")}
@@ -155,9 +157,10 @@ func AcceptChore(authID string, deadline string) HttpStatus {
 
 		if choreExists(choreName, chores) {
 			if !user.isAssigned() {
-				user.assignChore(choreName, deadline)
+				user.acceptChore(choreName, deadline)
 				chores[choreName].Assignee = user.FriendlyName
 				choreQ.Get(1)  // throw it on the GROUND
+				summoningOrder.PushBack(user.AuthID)
 
 				return OK
 			}
@@ -169,12 +172,32 @@ func AcceptChore(authID string, deadline string) HttpStatus {
 
 // user with authID is declining this chore, so their shame is increased and are marked as no longer summoned
 func DeclineChore(authID string) HttpStatus {
-	return OK
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) HttpStatus {
+
+		if choreQ.Empty() {
+			return HttpStatus{500, fmt.Sprint("queue of to-do chores is empty. nothing to accept")}
+		}
+
+		tmp, _ := choreQ.Peek()
+		choreName := tmp.(string)
+		user := users[authID]
+
+		if choreExists(choreName, chores) {
+			if !user.isAssigned() {
+				user.declineChore(chores[choreName].AmtOfShame)
+				summoningOrder.PushFront(user)
+
+				return OK
+			}
+			return HttpStatus{500, fmt.Sprintf("user is already assigned to a chore: %s", users[authID].AssignedChore)}
+		}
+		return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist or is already active", choreName)}
+	}, authID)
 }
 
 // returns a JSON object with information about all of the chores
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder SummonsQueue) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) interface{} {
 		return choreList(chores)
 	}, func(){}, authID)
 }
@@ -182,37 +205,36 @@ func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 // verifies that user with friendlyName and password exists, and returns a custom authID that will be used as an identifier for their session
 func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 	authID := constructAuthID(friendlyName, password)
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder SummonsQueue) interface{} {
-		if passwordCheck(authID, password) {
-				// everything checks out, return back the authID and OK status
-				return authID
-			} else {
-				// Invalid password, report
-				return []byte{}
-			}
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) interface{} {
+		// everything checks out, return back the authID and OK status
+		return authID
 	}, func() {
 		// adding users dynamically isn't needed for the demo
 		//addUser(User{authID, friendlyName, password, "", "", 0, false})
+
+		// Invalid password, report
+		return []byte{}
 	}, authID)
 }
 
 // reports that a chore needs work and summons the next user in the summons ordering, returns 200 OK. (Note that the user summoned at this time won't necessarily be assigned to this chore)
 // otherwise returns 500 HttpStatus with error message
 func ReportChore(authID string, choreName string) HttpStatus {
-	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder SummonsQueue) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) HttpStatus {
 		if choreExists(choreName, chores) &&
 			!chores[choreName].isActive() &&
 			!choreQContains(choreQ, choreName) {
-			user := users[authID]
-			if !user.isAssigned() {
+			nextUser, err := nextUserToSummon(summoningOrder, users)
+			if err == nil {
 				// chore exists and is inactive, so we'll put it into the queue of to-do chores, and update appropriate objects
 				choreQ.Put(choreName)
-				user.Summoned = true
+				nextUser.Summoned = true
+				removeUserFromSummoningOrder(summoningOrder, nextUser)
 				chores[choreName].NeedsWork = true
 				chores[choreName].ReportedTime = time.Now().Local().Format(time.RFC1123)
 				return OK
 			}
-			return HttpStatus{500, fmt.Sprintf("user '%s' is already assigned to a chore: %s", user.FriendlyName, user.AssignedChore)}
+			return HttpStatus{500, fmt.Sprintf("SummonOrderError: %s", err.Error())}
 		} else {
 			// In V1, a fixed number of chores exist, so we're not allowing clients to define their own chores on reporting
 
@@ -223,7 +245,7 @@ func ReportChore(authID string, choreName string) HttpStatus {
 
 // a user with authID has finished choreName, so we unassign them and move them to the back of the summons ordering
 func DoneWithChore(authID string, choreName string) HttpStatus {
-	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder SummonsQueue) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) HttpStatus {
 		if choreExists(choreName, chores) &&
 			chores[choreName].isActive() &&
 			!choreQContains(choreQ, choreName) {
@@ -250,7 +272,7 @@ func DoneWithChore(authID string, choreName string) HttpStatus {
 
 // MMMMMMMMMM
 // synchronously acquires and releases internal data structures outside of given function
-func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*Chore), *queue.Queue, SummonsQueue) interface{},
+func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*Chore), *queue.Queue, *list.List) interface{},
 					optionalFailure func(),
 					authID string) ([]byte, HttpStatus) {
 	users, chores, choreQ, summoningOrder := aqcuireInternals()
@@ -267,7 +289,7 @@ func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*C
 
 // MMMMMMMMMM
 // synchronously acquires and releases internal data structures outside of given function
-func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *queue.Queue, SummonsQueue) HttpStatus, authID string) HttpStatus {
+func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *queue.Queue, *list.List) HttpStatus, authID string) HttpStatus {
 	users, chores, choreQ, summoningOrder := aqcuireInternals()
 	if verifyAuthID(authID, users) {
 		status := getStatus(users, chores, choreQ, summoningOrder)
@@ -279,8 +301,26 @@ func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *q
 	}
 }
 
-func setNextUser(authID string, friendlyName string) HttpStatus {
-	return OK
+//func setNextUser(authID string, friendlyName string) HttpStatus {
+//	return OK
+//}
+
+func nextUserToSummon(summoningOrder *list.List, users map[string](*User)) (*User, error) {
+	if summoningOrder.Len() == 0 {
+		return nil, errors.New("All users are summoned or assigned to a task!")
+	} else {
+		user := summoningOrder.Front().Value.(*User)
+		return users[user.AuthID], nil
+	}
+}
+
+func removeUserFromSummoningOrder(summoningOrder *list.List, user *User) {
+	for elem := summoningOrder.Front(); true; elem = elem.Next() {
+		if elem.Value == user.AuthID {
+			summoningOrder.Remove(elem)
+			return
+		}
+	}
 }
 
 func constructAuthID(friendlyName string, password string) string {
@@ -326,12 +366,12 @@ func passwordCheck(authID string, password string) bool {
 	return true
 }
 
-func addUser(u User) {
-
-}
+//func addUser(u User) {
+//
+//}
 
 // gets internal data structures synchronously with other goroutine handlers
-func aqcuireInternals() (map[string](*User), map[string](*Chore), *queue.Queue, SummonsQueue) {
+func aqcuireInternals() (map[string](*User), map[string](*Chore), *queue.Queue, *list.List) {
 	users := <-UsersChan
 	chores := <-ChoresChan
 	choreQ := <-TodoChoreQChan
@@ -340,7 +380,7 @@ func aqcuireInternals() (map[string](*User), map[string](*Chore), *queue.Queue, 
 }
 
 // releases internal data structures in the reverse order in which they were acquired
-func releaseInternals(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder SummonsQueue) {
+func releaseInternals(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) {
 	TodoChoreQChan <- choreQ
 	ChoresChan <- chores
 	UsersChan <- users

@@ -137,7 +137,7 @@
         accept.id = "accept";
         accept.addEventListener("click", function(e) {
             var val = deadline.value;
-            ajax("http://" + BACKEND + "/accept?authID=" + authid + "&deadline=" +
+            ajax("http://" + BACKEND + "/acceptChore?authID=" + authid + "&deadline=" +
                 new Date(Date.now() + 3600000 * val).toUTCString(),
             function(r) {
                 if (r.target.status == 200) {
@@ -152,7 +152,7 @@
         deny.innerHTML = "Decline";
         deny.id = "deny";
         deny.addEventListener("click", function(e) {
-            ajax("http://" + BACKEND + "/deny?authID=" + authid, 
+            ajax("http://" + BACKEND + "/declineChore?authID=" + authid, 
             function(r) {
                 if (r.target.status == 200) {
                     populateChoreChart();
@@ -264,9 +264,8 @@
                     function(e) {
                         if (e.target.status == 200) {
                             chore.dom.classList.remove("active");
-                            chore.Active = false;
+                            chore.NeedsWork = false;
                         } else {
-                            console.log(e);
                             error(e.target.status, e.target.statusText);
                         }
                     });
@@ -282,9 +281,8 @@
                     function(e) {
                         if (e.target.status == 200) {
                             chore.dom.classList.add("active");
-                            chore.Active = true;
+                            chore.NeedsWork = true;
                         } else {
-                            console.log(e);
                             error(e.target.status, e.target.statusText);
                         }
                     });

@@ -25,7 +25,8 @@ var ACCEPT_CHORE_PARAMS = []string{"authID", "deadline"}
 var DECLINE_CHORE_PARAMS = []string{"authID"}
 var CHORE_BOARD_PARAMS = []string{"authID"}
 var LOGIN_USER_PARAMS = []string{"friendlyName", "password"}
-var REPORT_CHORE_PARAMS = []string{"authID", "choreName", "mode"}
+var REPORT_CHORE_PARAMS = []string{"authID", "choreName"}
+var DONE_WITH_CHORE_PARAMS = []string{"authID", "choreName"}
 
 func main() {
 
@@ -40,9 +41,11 @@ func main() {
 	http.HandleFunc("/choreBoard", badRequestFilter(handleChoreBoard, CHORE_BOARD_PARAMS))
 	http.HandleFunc("/loginUser", badRequestFilter(handleLoginUser, LOGIN_USER_PARAMS))
 	http.HandleFunc("/reportChore", badRequestFilter(handleReportChore, REPORT_CHORE_PARAMS))
+	http.HandleFunc("/doneWithChore", badRequestFilter(handleDoneWithChore, DONE_WITH_CHORE_PARAMS))
 
 	fmt.Println("About to ListenAndServe on " + HOST)
-	http.ListenAndServe(HOST, nil)
+	err := http.ListenAndServe(HOST, nil)
+	fmt.Printf("%v", err)
 }
 
 //=============================== Handlers ===============================//
@@ -73,7 +76,12 @@ func handleLoginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleReportChore(w http.ResponseWriter, r *http.Request) {
-	status := model.ReportChore(r.Form[REPORT_CHORE_PARAMS[0]][0], r.Form[REPORT_CHORE_PARAMS[1]][0], r.Form[REPORT_CHORE_PARAMS[2]][0])
+	status := model.ReportChore(r.Form[REPORT_CHORE_PARAMS[0]][0], r.Form[REPORT_CHORE_PARAMS[1]][0])
+	handleStatus(w, r, status)
+}
+
+func handleDoneWithChore(w http.ResponseWriter, r *http.Request) {
+	status := model.DoneWithChore(r.Form[DONE_WITH_CHORE_PARAMS[0]][0], r.Form[DONE_WITH_CHORE_PARAMS[1]][0])
 	handleStatus(w, r, status)
 }
 

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"github.com/Workiva/go-datastructures/queue"
+	"time"
 )
 
 /**
@@ -33,19 +34,21 @@ func (u *User) isAssigned() bool {
 
 func (u *User) unassign() *User {
 	u.AssignedChore = INVALID_CHORE
+	u.Deadline = ""
 	return u
 }
 
 func (u *User) assignChore(choreName string, deadline string) *User {
 	u.AssignedChore = choreName
 	u.Deadline = deadline
+	u.Summoned = false
 	return u
 }
 
 type Chore struct {
 	Assignee     string // the friendly name of the user assigned to this chore
 	AmtOfShame   int
-	Active       bool
+	NeedsWork       bool
 	ReportedTime string // UTC local time for chore deadline
 	Description  string // description of chore
 	ChoreName    string
@@ -68,7 +71,7 @@ var OK = HttpStatus{200, "OK"}
 
 var Users = map[string](*User){"drew:bass": &User{"drew:bass", "drew", "bass", INVALID_CHORE, "", 0, false}} // key: authId
 
-var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, false, "2016-08-09T02:00:00Z", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"}} // key: choreName
+var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, false, "", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"}} // key: choreName
 
 var TodoChoreQ = queue.New(0)
 
@@ -105,7 +108,7 @@ func AcceptChore(authID string, deadline string) HttpStatus {
 		if choreExists(choreName, chores) {
 			if !user.isAssigned() {
 				user.assignChore(choreName, deadline)
-				user.Summoned = false
+				chores[choreName].Assignee = user.FriendlyName
 				choreQ.Get(1)  // throw it on the GROUND
 
 				return OK
@@ -122,10 +125,7 @@ func DeclineChore(authID string) HttpStatus {
 
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue) interface{} {
-		chore1 := Chore{"Bob", 9001, true, "2016-08-03T14:00:00Z", "Take out the trash", "1"}
-		chore2 := Chore{"Logan", 2, true, "2016-07-03T14:00:00Z", "Be pretty", "2"}
-		chore3 := Chore{"", 500, false, "2016-08-01T14:00:00Z", "Clean the sink", "3"}
-		return []Chore{chore1, chore2, chore3}
+		return choreList(chores)
 	}, func(){}, authID)
 }
 
@@ -144,23 +144,49 @@ func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 	}, authID)
 }
 
-func ReportChore(authID string, choreName string, mode string) HttpStatus {
+func ReportChore(authID string, choreName string) HttpStatus {
 	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue) HttpStatus {
-		if choreExists(choreName, chores) && !chores[choreName].isActive() && choreQContains(choreQ, choreName) {
+		if choreExists(choreName, chores) &&
+			!chores[choreName].isActive() &&
+			!choreQContains(choreQ, choreName) {
 			user := users[authID]
-			if user.isAssigned() {
+			if !user.isAssigned() {
 				// chore exists and is inactive, so we'll put it into the queue of to-do chores, and update appropriate objects
 				choreQ.Put(choreName)
 				user.Summoned = true
-
+				chores[choreName].NeedsWork = true
+				chores[choreName].ReportedTime = time.Now().Local().Format(time.RFC1123)
 				return OK
 			}
 			return HttpStatus{500, fmt.Sprintf("user '%s' is already assigned to a chore: %s", user.FriendlyName, user.AssignedChore)}
 		} else {
 			// In V1, a fixed number of chores exist, so we're not allowing clients to define their own chores on reporting
-			// mode is not used in V1
 			
 			return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist, is already assigned, or is already in the queue of to-do chores", choreName)}
+		}
+		return OK
+	}, authID)
+}
+
+func DoneWithChore(authID string, choreName string) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue) HttpStatus {
+		if choreExists(choreName, chores) &&
+			chores[choreName].isActive() &&
+			!choreQContains(choreQ, choreName) {
+			user := users[authID]
+			if user.isAssigned() {
+				// chore has been finished. the chore no longer NeedsWork, and the user assigned is unassigned
+				chores[choreName].Assignee = INVALID_ASSIGNEE
+				chores[choreName].NeedsWork = false
+				chores[choreName].ReportedTime = ""
+				user.unassign()
+				return OK
+			}
+			return HttpStatus{500, fmt.Sprintf("user '%s' is not assigned to a chore cannot be done with this one: %s", user.FriendlyName, user.AssignedChore)}
+		} else {
+			// In V1, a fixed number of chores exist, so we're not allowing clients to define their own chores on reporting
+
+			return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist, is not assigned, or is in the queue of to-do chores", choreName)}
 		}
 		return OK
 	}, authID)
@@ -221,6 +247,14 @@ func verifyAuthID(authID string, users map[string](*User)) bool {
 func choreExists(choreName string, chores map[string](*Chore)) bool {
 	_, ok := chores[choreName]
 	return ok
+}
+
+func choreList(chores map[string](*Chore)) []Chore {
+	cl := make([]Chore, 0)
+	for choreName := range chores {
+		cl = append(cl, *chores[choreName])
+	}
+	return cl
 }
 
 func choreQContains(choreQ *queue.Queue, choreName interface{}) bool {

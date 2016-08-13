@@ -148,7 +148,8 @@ func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 				return []byte{}
 			}
 	}, func() {
-		addUser(User{authID, friendlyName, password, "", "", 0, false})
+		// adding users dynamically isn't needed for the demo
+		//addUser(User{authID, friendlyName, password, "", "", 0, false})
 	}, authID)
 }
 

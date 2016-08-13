@@ -28,15 +28,13 @@ func (u *User) isAssigned() bool {
 	return u.AssignedChore != INVALID_CHORE
 }
 
-func (u *User) unassign() *User {
+func (u *User) unassign() {
 	u.AssignedChore = INVALID_CHORE
-	return u
 }
 
-func (u *User) assignChore(choreName string, deadline string) *User {
+func (u *User) assignChore(choreName string, deadline string) {
 	u.AssignedChore = choreName
 	u.Deadline = deadline
-	return u
 }
 
 type Chore struct {
@@ -46,6 +44,15 @@ type Chore struct {
 	ReportedTime string // UTC local time for chore deadline
 	Description string  // description of chore
 	ChoreName string
+}
+
+func (c *Chore) isActive() bool {
+	return c.Active
+}
+
+func (c *Chore) assignUser(userName string, reportTime string) {
+	c.Assignee = userName
+	c.ReportedTime = reportTime
 }
 
 type HttpStatus struct {
@@ -61,7 +68,7 @@ var OK = HttpStatus{200, "OK"}
 
 var Users = map[string](*User){"drew:bass": &User{"drew:bass", "drew", "bass", INVALID_CHORE, "", 0}} // key: authId
 
-var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, true, "2016-08-09T02:00:00Z", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"}} // key: choreName
+var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, false, "2016-08-09T02:00:00Z", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"}} // key: choreName
 
 var ChoreQ = list.New()
 
@@ -86,23 +93,25 @@ func GetUserStatus(authID string) ([]byte, HttpStatus) {
 
 func AcceptChore(authID string, choreName string, deadline string) HttpStatus {
 	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) HttpStatus {
-		if choreExists(choreName, chores) {
+		if choreExists(choreName, chores)  && !chores[choreName].isActive() {
 			if !users[authID].isAssigned() {
 				users[authID].assignChore(choreName, deadline)
+
 				return OK
 			}
 			return HttpStatus{500, fmt.Sprintf("user is already assigned to a chore: %s", users[authID].AssignedChore)}
 		}
-		return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist", choreName)}
+		return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist or is already active", choreName)}
 	}, authID)
 }
 
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List) interface{} {
-		chore1 := Chore{"Bob", 9001, true, "2016-08-03T14:00:00Z", "Take out the trash", "1"}
-		chore2 := Chore{"Logan", 2, true, "2016-07-03T14:00:00Z", "Be pretty", "2"}
-		chore3 := Chore{"", 500, false, "2016-08-01T14:00:00Z", "Clean the sink", "3"}
-		return []Chore{chore1, chore2, chore3}
+		choreSlice := make([]*Chore, 0)
+		for key := range chores {
+			choreSlice = append(choreSlice, chores[key])
+		}
+		return choreSlice
 	}, func(){}, authID)
 }
 

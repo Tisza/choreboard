@@ -40,7 +40,7 @@ header, #nav {
     margin-left: 0;
 }
 
-#nav a {
+#nav li {
     text-decoration: none;
     display: block;
     background-color: #333;
@@ -48,9 +48,10 @@ header, #nav {
     padding: 5pt;
     margin: 5pt;
     transition: background-color 0.3s;
+    cursor: pointer;
 }
 
-#nav a:hover {
+#nav li:hover {
     background-color: #666;
 }
 
@@ -77,6 +78,8 @@ header, #nav {
     padding: 1pt;
     background-color: #999;
     overflow: hidden;
+    cursor: pointer;
+    min-width: 350pt;
 }
 
 .item > h2 {
@@ -99,7 +102,6 @@ header, #nav {
 
 .item > div {
     float: right;
-    width: calc(100% - 50pt - 30pt);
     padding: 15pt;
 }
 
@@ -157,9 +159,97 @@ header, #nav {
 
 @keyframes spin {
     from {
-        transform: rotat(1deg);
+        transform: rotate(1deg);
     }
     to {
         transform: rotate(359deg);
     }
+}
+
+#exitBox {
+    float:right;
+    width: 20pt;
+    height: 20pt;
+    background-color: red;
+    position: relative;
+    top: -10pt;
+    right: -10pt;
+    border-radius: 10pt;
+}
+
+.promptAction {
+    border-radius: 5pt;
+    background-color: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    display: block;
+    padding: 5pt;
+    margin: 5pt;
+}
+
+.promptAction:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.comingsoon {
+    cursor: no-drop !important;
+}
+
+.comingsoon:hover {
+    animation-duration: 0.4s;
+    animation-name: wiggle;
+    animation-iteration-count: 2;
+}
+
+@keyframes wiggle {
+    0% {
+        transform: rotate(0deg);
+    }
+    25% {
+        transform: rotate(-15deg);
+    }
+    50% {
+        transform: rotate(0deg);
+    }
+    75% {
+        transform: rotate(15deg);
+    }
+    100% {
+        transform: rotate(0deg);
+    }
+}
+
+#timespan {
+    width: 100%;
+}
+
+#timedisplay {
+    font-size: 48pt;
+}
+
+#accept {
+    background-color: rgba(0, 255, 0, 0.2);
+}
+
+#accept:hover {
+    background-color: rgba(0, 255, 0, 1);
+}
+
+#deny {
+    background-color: rgba(255, 0, 0, 0.2);
+}
+
+#deny:hover {
+    background-color: rgba(255, 0, 0, 1);
+}
+
+// perhaps unify this with promptAction
+.button {
+    display: block;
+    padding: 15pt;
+    margin: 10pt;
+    font-weight: 900;
+    cursor: pointer;
+    border-radius: 15pt;
+    float: left;
+    transition: background-color 0.3s;
 }

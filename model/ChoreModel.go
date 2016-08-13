@@ -262,12 +262,14 @@ func choreList(chores map[string](*Chore)) []Chore {
 
 func choreQContains(choreQ *queue.Queue, choreName interface{}) bool {
 	choreNames, _ := choreQ.Get(choreQ.Len())
+	found := false
 	for name := range choreNames {
 		if name == choreName {
-			return true
+			found = true
 		}
+		choreQ.Put(name)
 	}
-	return false
+	return found
 }
 
 func passwordCheck(authID string, password string) bool {

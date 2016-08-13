@@ -211,9 +211,6 @@ func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 	}, func() {
 		// adding users dynamically isn't needed for the demo
 		//addUser(User{authID, friendlyName, password, "", "", 0, false})
-
-		// Invalid password, report
-		return []byte{}
 	}, authID)
 }
 

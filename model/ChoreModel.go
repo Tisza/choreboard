@@ -167,7 +167,6 @@ func ReportChore(authID string, choreName string) HttpStatus {
 
 			return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist, is already assigned, or is already in the queue of to-do chores", choreName)}
 		}
-		return OK
 	}, authID)
 }
 
@@ -191,7 +190,6 @@ func DoneWithChore(authID string, choreName string) HttpStatus {
 
 			return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist, is not assigned, or is in the queue of to-do chores", choreName)}
 		}
-		return OK
 	}, authID)
 }
 

@@ -242,6 +242,7 @@ header, #nav {
     background-color: rgba(255, 0, 0, 1);
 }
 
+// perhaps unify this with promptAction
 .button {
     display: block;
     padding: 15pt;

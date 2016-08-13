@@ -95,30 +95,43 @@
     // clears and loads a display for deciding to or not to do a chore
     function decideChore() {
         var form = document.createElement("form");
+
+        // so they know what they're doing
         var label = document.createElement("label");
         label.innerHTML = "deadline.";
         form.appendChild(label);
+
+        // slider input for chore deadline
         var deadline = document.createElement("input");
         deadline.type = "range";
         deadline.min = "1";
         deadline.max = "72";
         deadline.value = "1";
         deadline.id = "timespan";
+
+        // easy to read output for slider
         var timeBox = document.createElement("p");
         timeBox.id = "timedisplay";
         timeBox.innerHTML = "Deadline.";
+
+        // update the read output for the slider
         deadline.addEventListener("input", function(e) {
             var val = deadline.value;
             var now = new Date(Date.now() + 3600000 * val);
             timeBox.innerHTML = now.toLocaleTimeString() + " " + now.toDateString();
         });
+
+        // update the output with the time as well
         timeBox.interval = setInterval(tickUpdate, 1000, timeBox, function() {
             var val = deadline.value;
             var now = new Date(Date.now() + 3600000 * val);
             timeBox.innerHTML = now.toLocaleTimeString() + " " + now.toDateString();
         });
+
         form.appendChild(deadline);
         form.appendChild(timeBox);
+
+        // accept and decline buttons
         var accept = document.createElement("div");
         accept.innerHTML = "Accept";
         accept.id = "accept";
@@ -134,6 +147,7 @@
                 }
             });
         });
+
         var deny = document.createElement("div");
         deny.innerHTML = "Decline";
         deny.id = "deny";
@@ -147,6 +161,7 @@
                 }
             });
         });
+
         accept.classList.add("button");
         deny.classList.add("button");
         form.appendChild(accept);
@@ -201,7 +216,7 @@
                     text.appendChild(desc);
                     var who = document.createElement("p");
                     who.classList.add("who");
-                    if (value.Active) {
+                    if (value.NeedsWork) {
                         item.classList.add("active");
                     }
                     if (value.Assignee) {
@@ -232,16 +247,16 @@
     // event listener for choreboard items to flip/flop the chore value
     // REQUIRES: chore.dom to be set to the dom element it is firing for.
     function promptChore(chore, event) {
-        console.log(chore);
-        console.log(event);
         var prompt = newPrompt(true);
         var text = document.createElement("p");
         text.style.fontWeight = "900";
         var button = document.createElement("div");
         button.classList.add("promptAction");
-        if (chore.Active) {
+        // which of the two to prompts to chore.
+        if (chore.NeedsWork) {
             text.innerHTML = "Did you " + chore.ChoreName + "?";
             button.innerHTML = "I did " + chore.ChoreName;
+            // sign the chore as inactive.
             button.addEventListener("click", function() {
                 prompt.kill();
                 ajax("http://" + BACKEND + "/reportChore?authID=" + 
@@ -259,6 +274,7 @@
         } else {
             text.innerHTML = "Does " + chore.ChoreName + " need to be done?";
             button.innerHTML = chore.ChoreName + " needs to be done.";
+            // sign the chore as active
             button.addEventListener("click", function() {
                 prompt.kill();
                 ajax("http://" + BACKEND + "/reportChore?authID=" + 
@@ -391,9 +407,6 @@
     // REQUIRES throbber t has field interval set to the 
     // setInterval this is called at.
     function throbberHelper(t) {
-        if (t.parentNode == null) {
-            clearInterval(t.interval);
-        }
         var time = t.tic;
         if (!time) {
             time = 0;
@@ -402,7 +415,6 @@
         var v = Math.round(20 * (Math.sin(time))) + 30;
         var h = Math.round(120 + 60 * Math.cos(time / 2));
         t.style.backgroundColor = "hsl(" + h + ", 50%, " + v + "%)";
-        t.hue = h;
         t.tic = time;
     }
 
@@ -413,7 +425,9 @@
         var throbber = document.createElement("div");
         throbber.id = "throbber";
         board.appendChild(throbber);
-        throbber.interval = setInterval(throbberHelper, 100, throbber);
+        throbber.interval = setInterval(tickUpdate, 100, throbber, function() {
+            throbberHelper(throbber);
+        });
 
         throbber.stop = function() {
             clearInterval(throbber.interval);

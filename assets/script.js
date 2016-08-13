@@ -11,6 +11,7 @@
     var ERRCONNECT = "Couldn't contact server. Message Drew or Logan.";
 
 
+    // main
     window.addEventListener("load", function() {
         // browser checks
         if (!"Notification" in window) {
@@ -25,6 +26,11 @@
             getPermission();
         }
         navigator.serviceWorker.register('worker.js', {scope: './'});
+
+        // link the navigation
+        $("navcb").addEventListener("click", function(e) {
+            populateChoreChart();
+        });
 
         // look up their login info
         authid = document.cookie;
@@ -65,7 +71,7 @@
 
     // shortcut for returning id elements
     function $(ele) {
-        return document.getElementById("board");
+        return document.getElementById(ele);
     }
 
     // gets a user's status and decides which ui to display (choreboard or decidechore)
@@ -171,7 +177,6 @@
                 var chores = JSON.parse(e.target.responseText);
                 var board = $("board");
                 chores.forEach(function(value, index) {
-                    console.log(value)
                     // make the dom object for it and appendChild
                     var item = document.createElement("div");
                     item.chore = value; // saved for later

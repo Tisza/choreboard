@@ -40,7 +40,7 @@ header, #nav {
     margin-left: 0;
 }
 
-#nav a {
+#nav li {
     text-decoration: none;
     display: block;
     background-color: #333;
@@ -48,9 +48,10 @@ header, #nav {
     padding: 5pt;
     margin: 5pt;
     transition: background-color 0.3s;
+    cursor: pointer;
 }
 
-#nav a:hover {
+#nav li:hover {
     background-color: #666;
 }
 
@@ -190,7 +191,7 @@ header, #nav {
 }
 
 .comingsoon {
-    cursor: no-drop;
+    cursor: no-drop !important;
 }
 
 .comingsoon:hover {

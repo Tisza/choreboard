@@ -72,9 +72,14 @@ func (e HttpStatus) Error() string {
 
 var OK = HttpStatus{200, "OK"}
 
-var Users = map[string](*User){"drew:bass": &User{"drew:bass", "drew", "bass", INVALID_CHORE, "", 0, false}} // key: authId
+var Users = map[string](*User){"drew:bass": &User{"drew:bass", "drew", "bass", INVALID_CHORE, "", 0, false},
+								"logan:huskies": &User{"logan:huskies", "logan", "huskies", INVALID_CHORE, "", 0, false},
+								"katie:kittens": &User{"katie:kittens", "katie", "kittens", INVALID_CHORE, "", 0, false}} // key: authId
 
-var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, false, "", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"}} // key: choreName
+var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, false, "", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"},
+									"Trash": &Chore{INVALID_ASSIGNEE, 2, false, "", "Move trash and recycling from the kitchen to their bins outside. If the recycling is full, use the dumpster next to Jak's", "Trash"},
+									"Kitchen Counter": &Chore{INVALID_ASSIGNEE, 3, false, "", "Clear objects off of the kitchen counter. Dishes are put into the sink. Wipe down the counter.", "Kitchen Counter"},
+									"Kitchen Floor": &Chore{INVALID_ASSIGNEE, 3, false, "", "Pick up items off the floor in the kitchen (including next to the trash!). Mop the floor.", "Kitchen Floor"}} // key: choreName
 
 var TodoChoreQ = queue.New(0)
 

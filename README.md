@@ -13,6 +13,7 @@ ChoreBoard is designed to be run on a private network, where users/housemates ar
     *  ```sh
         $ go get github.com/Workiva/go-datastructures/queue
         ```
+        
     *  ```sh
         $ go get github.com/emirpasic/gods/sets/hashset
         ```
@@ -20,6 +21,7 @@ ChoreBoard is designed to be run on a private network, where users/housemates ar
     * ```sh
         $ go run $GOPATH/src/choreboard/controller/ChoreController.go
         ```
+        
 From there, you should have the service running on `localhost:8080`. 
 
 6. Install your favorite web server (ex. [Nginx](https://www.nginx.com/))

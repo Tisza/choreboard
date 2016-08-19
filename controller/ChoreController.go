@@ -34,6 +34,7 @@ func main() {
 	model.UsersChan <- model.Users
 	model.ChoresChan <- model.Chores
 	model.TodoChoreQChan <- model.TodoChoreQ
+	model.SummoningOrderChan <- model.SummoningOrder
 
 	http.HandleFunc("/userStatus", badRequestFilter(handleUserStatus, USER_STATUS_PARAMS))
 	http.HandleFunc("/acceptChore", badRequestFilter(handleAcceptChore, ACCEPT_CHORE_PARAMS))

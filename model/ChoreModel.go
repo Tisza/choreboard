@@ -160,7 +160,6 @@ func AcceptChore(authID string, deadline string) HttpStatus {
 				user.acceptChore(choreName, deadline)
 				chores[choreName].Assignee = user.FriendlyName
 				choreQ.Get(1)  // throw it on the GROUND
-				summoningOrder.PushBack(user.AuthID)
 
 				return OK
 			}
@@ -253,6 +252,8 @@ func DoneWithChore(authID string, choreName string) HttpStatus {
 				chores[choreName].NeedsWork = false
 				chores[choreName].ReportedTime = ""
 				user.unassign()
+				summoningOrder.PushBack(user.AuthID)
+
 				return OK
 			}
 			return HttpStatus{500, fmt.Sprintf("user '%s' is not assigned to this chore: %s", user.FriendlyName, user.AssignedChore)}

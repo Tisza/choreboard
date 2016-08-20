@@ -8,6 +8,7 @@ import (
 	"time"
 	"container/list"
 	"errors"
+	"os"
 )
 
 /**
@@ -24,6 +25,11 @@ TODO; write integration tests
 const INVALID_CHORE = ""
 const INVALID_ASSIGNEE = ""
 var OK = HttpStatus{200, "OK"}
+
+const USERS_FILENAME = "users.json"
+const CHORES_FILENAME = "chores.json"
+const CHOREQ_FILENAME = "todoChoreQ.json"
+const SUMMONING_ORDER_FILENAME = "summoningOrder.json"
 
 
 
@@ -136,8 +142,7 @@ var SummoningOrderChan = make(chan *list.List, 1)
 // returns JSON object with information about a particular user
 func GetUserStatus(authID string) ([]byte, HttpStatus) {
 	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
-		user := users[authID]
-		return user
+		return users[authID]
 	}, func(){}, authID)
 }
 
@@ -159,6 +164,11 @@ func AcceptChore(authID string, deadline string) HttpStatus {
 				user.acceptChore(choreName, deadline)
 				chores[choreName].Assignee = user.FriendlyName
 				choreQ.Remove(tmp)  // TODO: test this
+				
+				// mutation occurred, write changes to disk
+				encodeJSON(USERS_FILENAME, users)
+				encodeJSON(CHORES_FILENAME, chores)
+				encodeJSON(CHOREQ_FILENAME, choreQ)
 
 				return OK
 			}
@@ -184,6 +194,10 @@ func DeclineChore(authID string) HttpStatus {
 			if !user.isAssigned() {
 				user.declineChore(chores[choreName].AmtOfShame)
 				summoningOrder.PushFront(user)
+				
+				// mutation occurred, write changes to disk
+				encodeJSON(USERS_FILENAME, users)
+				encodeJSON(SUMMONING_ORDER_FILENAME, summoningOrder)
 
 				return OK
 			}
@@ -227,6 +241,13 @@ func ReportChore(authID string, choreName string) HttpStatus {
 				removeUserFromSummoningOrder(summoningOrder, nextUser)
 				chores[choreName].NeedsWork = true
 				chores[choreName].ReportedTime = time.Now().Local().Format(time.RFC1123)
+
+				// mutation occurred, write changes to disk
+				encodeJSON(USERS_FILENAME, users)
+				encodeJSON(CHORES_FILENAME, chores)
+				encodeJSON(CHOREQ_FILENAME, choreQ)
+				encodeJSON(SUMMONING_ORDER_FILENAME, summoningOrder)
+				
 				return OK
 			}
 			return HttpStatus{500, fmt.Sprintf("SummonOrderError: %s", err.Error())}
@@ -252,6 +273,11 @@ func DoneWithChore(authID string, choreName string) HttpStatus {
 				chores[choreName].ReportedTime = ""
 				user.unassign()
 				summoningOrder.PushBack(user.AuthID)
+
+				// mutation occurred, write changes to disk
+				encodeJSON(USERS_FILENAME, users)
+				encodeJSON(CHORES_FILENAME, chores)
+				encodeJSON(SUMMONING_ORDER_FILENAME, summoningOrder)
 
 				return OK
 			}
@@ -297,10 +323,6 @@ func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *l
 		return HttpStatus{http.StatusForbidden, "Forbidden: Invalid authID"}
 	}
 }
-
-//func setNextUser(authID string, friendlyName string) HttpStatus {
-//	return OK
-//}
 
 func nextUserToSummon(summoningOrder *list.List, users map[string](*User)) (*User, error) {
 	if summoningOrder.Len() == 0 {
@@ -363,6 +385,12 @@ func passwordCheck(authID string, password string) bool {
 //func addUser(u User) {
 //
 //}
+
+func encodeJSON(filename string, object interface{}) {
+	file, _ := os.Open(filename)
+	enc := json.NewEncoder(file)
+	enc.Encode(object)
+}
 
 // gets internal data structures synchronously with other goroutine handlers
 func aqcuireInternals() (map[string](*User), map[string](*Chore), *list.List, *list.List) {

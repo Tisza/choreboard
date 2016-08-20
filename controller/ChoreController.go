@@ -34,44 +34,49 @@ var DONE_WITH_CHORE_PARAMS = []string{"authID", "choreName"}
 
 func main() {
 
-	// TEST: write out initial data structures to files, then read them in.
-	user_file, _ := os.Create("users.json")
-	enc := json.NewEncoder(user_file)
-	enc.Encode(model.Users)
-
-	chores_file, _ := os.Create("chores.json")
-	enc = json.NewEncoder(chores_file)
-	enc.Encode(model.Chores)
-
-	todoChoreQ_file, _ := os.Create("todoChoreQ.json")
-	enc = json.NewEncoder(todoChoreQ_file)
-	enc.Encode(model.TodoChoreQ)
-
-	summoningOrder_file, _ := os.Create("summoningOrder.json")
-	enc = json.NewEncoder(summoningOrder_file)
-	enc.Encode(model.SummoningOrder)
-
-
+	// initialize data structures from disk
 	var users map[string](*model.User)
 	var chores map[string](*model.Chore)
 	var todoChoreQ *list.List
 	var summoningOrder *list.List
 
-	user_bytes, _ := ioutil.ReadFile("users.json")
-	chores_bytes, _ := ioutil.ReadFile("chores.json")
-	todoChoreQ_bytes, _ := ioutil.ReadFile("todoChoreQ.json")
-	summoningOrder_bytes, _ := ioutil.ReadFile("summoningOrder.json")
 
+	// ensure files for data structures exist, and create them if they don't
+
+	if _, err := os.Stat(model.USERS_FILENAME); os.IsNotExist(err) {
+		createFileAndInitialize(model.USERS_FILENAME, model.Users)
+	}
+
+	if _, err := os.Stat("chores.json"); os.IsNotExist(err) {
+		createFileAndInitialize(model.CHORES_FILENAME, model.Chores)
+	}
+
+	if _, err := os.Stat("todoChoreQ.json"); os.IsNotExist(err) {
+		createFileAndInitialize(model.CHOREQ_FILENAME, model.TodoChoreQ)
+	}
+
+	if _, err := os.Stat("summoningOrder.json"); os.IsNotExist(err) {
+		createFileAndInitialize(model.SUMMONING_ORDER_FILENAME, model.SummoningOrder)
+	}
+
+	user_bytes, _ := ioutil.ReadFile(model.USERS_FILENAME)
 	json.Unmarshal(user_bytes, &users)
+
+	chores_bytes, _ := ioutil.ReadFile(model.CHORES_FILENAME)
 	json.Unmarshal(chores_bytes, &chores)
+
+	todoChoreQ_bytes, _ := ioutil.ReadFile(model.CHOREQ_FILENAME)
 	json.Unmarshal(todoChoreQ_bytes, &todoChoreQ)
+
+	summoningOrder_bytes, _ := ioutil.ReadFile(model.SUMMONING_ORDER_FILENAME)
 	json.Unmarshal(summoningOrder_bytes, &summoningOrder)
+
 
 	// TODO: figure out a way to refactor channel initialization to model
 	model.UsersChan <- users
 	model.ChoresChan <- chores
-	model.TodoChoreQChan <- model.TodoChoreQ
-	model.SummoningOrderChan <- model.SummoningOrder
+	model.TodoChoreQChan <- todoChoreQ
+	model.SummoningOrderChan <- summoningOrder
 
 	http.HandleFunc("/userStatus", badRequestFilter(handleUserStatus, USER_STATUS_PARAMS))
 	http.HandleFunc("/acceptChore", badRequestFilter(handleAcceptChore, ACCEPT_CHORE_PARAMS))
@@ -210,4 +215,10 @@ func eq(a *hashset.Set, b []string) bool {
 		}
 	}
 	return true
+}
+
+func createFileAndInitialize(filename string, v interface{}) {
+	file, _ := os.Create(filename)
+	enc := json.NewEncoder(file)
+	enc.Encode(v)
 }

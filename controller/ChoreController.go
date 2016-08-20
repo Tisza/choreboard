@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"os"
 	"io/ioutil"
+	"container/list"
 )
 
 /**
@@ -42,14 +43,29 @@ func main() {
 	enc = json.NewEncoder(chores_file)
 	enc.Encode(model.Chores)
 
+	todoChoreQ_file, _ := os.Create("todoChoreQ.json")
+	enc = json.NewEncoder(todoChoreQ_file)
+	enc.Encode(model.TodoChoreQ)
+
+	summoningOrder_file, _ := os.Create("summoningOrder.json")
+	enc = json.NewEncoder(summoningOrder_file)
+	enc.Encode(model.SummoningOrder)
+
+
 	var users map[string](*model.User)
 	var chores map[string](*model.Chore)
+	var todoChoreQ *list.List
+	var summoningOrder *list.List
 
 	user_bytes, _ := ioutil.ReadFile("users.json")
 	chores_bytes, _ := ioutil.ReadFile("chores.json")
+	todoChoreQ_bytes, _ := ioutil.ReadFile("todoChoreQ.json")
+	summoningOrder_bytes, _ := ioutil.ReadFile("summoningOrder.json")
 
 	json.Unmarshal(user_bytes, &users)
 	json.Unmarshal(chores_bytes, &chores)
+	json.Unmarshal(todoChoreQ_bytes, &todoChoreQ)
+	json.Unmarshal(summoningOrder_bytes, &summoningOrder)
 
 	// TODO: figure out a way to refactor channel initialization to model
 	model.UsersChan <- users

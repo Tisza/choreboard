@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"strconv"
 	"github.com/emirpasic/gods/sets/hashset"
+	"encoding/json"
+	"os"
+	"io/ioutil"
 )
 
 /**
@@ -30,9 +33,27 @@ var DONE_WITH_CHORE_PARAMS = []string{"authID", "choreName"}
 
 func main() {
 
+	// TEST: write out initial data structures to files, then read them in.
+	user_file, _ := os.Create("users.json")
+	enc := json.NewEncoder(user_file)
+	enc.Encode(model.Users)
+
+	chores_file, _ := os.Create("chores.json")
+	enc = json.NewEncoder(chores_file)
+	enc.Encode(model.Chores)
+
+	var users map[string](*model.User)
+	var chores map[string](*model.Chore)
+
+	user_bytes, _ := ioutil.ReadFile("users.json")
+	chores_bytes, _ := ioutil.ReadFile("chores.json")
+
+	json.Unmarshal(user_bytes, &users)
+	json.Unmarshal(chores_bytes, &chores)
+
 	// TODO: figure out a way to refactor channel initialization to model
-	model.UsersChan <- model.Users
-	model.ChoresChan <- model.Chores
+	model.UsersChan <- users
+	model.ChoresChan <- chores
 	model.TodoChoreQChan <- model.TodoChoreQ
 	model.SummoningOrderChan <- model.SummoningOrder
 

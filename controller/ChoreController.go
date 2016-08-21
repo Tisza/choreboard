@@ -47,15 +47,15 @@ func main() {
 		createFileAndInitialize(model.USERS_FILENAME, model.Users)
 	}
 
-	if _, err := os.Stat("chores.json"); os.IsNotExist(err) {
+	if _, err := os.Stat(model.CHORES_FILENAME); os.IsNotExist(err) {
 		createFileAndInitialize(model.CHORES_FILENAME, model.Chores)
 	}
 
-	if _, err := os.Stat("todoChoreQ.json"); os.IsNotExist(err) {
+	if _, err := os.Stat(model.CHOREQ_FILENAME); os.IsNotExist(err) {
 		createFileAndInitialize(model.CHOREQ_FILENAME, model.TodoChoreQ)
 	}
 
-	if _, err := os.Stat("summoningOrder.json"); os.IsNotExist(err) {
+	if _, err := os.Stat(model.SUMMONING_ORDER_FILENAME); os.IsNotExist(err) {
 		createFileAndInitialize(model.SUMMONING_ORDER_FILENAME, model.SummoningOrder)
 	}
 

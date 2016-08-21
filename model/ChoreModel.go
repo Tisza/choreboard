@@ -14,7 +14,6 @@ import (
 
 /**
 TODO: more obfuscating authID reviersible hash
-TODO: hold persistent data in .json files
 TODO: write unit tests
 TODO; write integration tests
 */
@@ -193,14 +192,23 @@ func DeclineChore(authID string) HttpStatus {
 
 		if choreExists(choreName, chores) {
 			if !user.isAssigned() && user.Summoned {
-				user.declineChore(chores[choreName].AmtOfShame)
-				summoningOrder.PushBack(user.AuthID)
-				
-				// mutation occurred, write changes to disk
-				writeToJsonStorageFile(USERS_FILENAME, users)
-				writeToJsonStorageFile(SUMMONING_ORDER_FILENAME, listToSlice(summoningOrder))
+				nextUser, err := nextUserToSummon(summoningOrder, users)
+				if err == nil {
 
-				return OK
+					user.declineChore(chores[choreName].AmtOfShame)
+
+					nextUser.Summoned = true
+					removeUserFromSummoningOrder(summoningOrder, nextUser)
+
+					summoningOrder.PushFront(user.AuthID)
+
+					// mutation occurred, write changes to disk
+					writeToJsonStorageFile(USERS_FILENAME, users)
+					writeToJsonStorageFile(SUMMONING_ORDER_FILENAME, listToSlice(summoningOrder))
+
+					return OK
+				}
+				return HttpStatus{500, fmt.Sprintf("SummonOrderError: %s", err.Error())}
 			}
 			return HttpStatus{500, fmt.Sprintf("user is already assigned to a chore or has not been summoned\nAssigned Chore: %s\nSummoned: %v", user.AssignedChore, user.Summoned)}
 		}

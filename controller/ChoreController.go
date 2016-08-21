@@ -12,17 +12,8 @@ import (
 	"container/list"
 )
 
-/**
-TODO: implement handleUserStatus
-TODO: implement handleSignChore
-TODO: implement handleChoreBoard
-TODO: implement handleLoginUser
-TODO: implement handleReportChore
-*/
-
-//var HOST_NAME , err = externalIP()
-var PORT string = "8080"
-var HOST = ":" + PORT
+const PORT string = "8080"
+const HOST = ":" + PORT
 
 var USER_STATUS_PARAMS = []string{"authID"}
 var ACCEPT_CHORE_PARAMS = []string{"authID", "deadline"}
@@ -44,19 +35,19 @@ func main() {
 	// ensure files for data structures exist, and create them if they don't
 
 	if _, err := os.Stat(model.USERS_FILENAME); os.IsNotExist(err) {
-		createFileAndInitialize(model.USERS_FILENAME, model.Users)
+		initializeStorageFile(model.USERS_FILENAME, model.Users)
 	}
 
 	if _, err := os.Stat(model.CHORES_FILENAME); os.IsNotExist(err) {
-		createFileAndInitialize(model.CHORES_FILENAME, model.Chores)
+		initializeStorageFile(model.CHORES_FILENAME, model.Chores)
 	}
 
 	if _, err := os.Stat(model.CHOREQ_FILENAME); os.IsNotExist(err) {
-		createFileAndInitialize(model.CHOREQ_FILENAME, model.TodoChoreQ)
+		initializeStorageFile(model.CHOREQ_FILENAME, listToArray(model.TodoChoreQ))
 	}
 
 	if _, err := os.Stat(model.SUMMONING_ORDER_FILENAME); os.IsNotExist(err) {
-		createFileAndInitialize(model.SUMMONING_ORDER_FILENAME, model.SummoningOrder)
+		initializeStorageFile(model.SUMMONING_ORDER_FILENAME, listToArray(model.SummoningOrder))
 	}
 
 	user_bytes, _ := ioutil.ReadFile(model.USERS_FILENAME)
@@ -217,8 +208,19 @@ func eq(a *hashset.Set, b []string) bool {
 	return true
 }
 
-func createFileAndInitialize(filename string, v interface{}) {
+func initializeStorageFile(filename string, v interface{}) {
 	file, _ := os.Create(filename)
-	enc := json.NewEncoder(file)
-	enc.Encode(v)
+	json_bytes, _ := json.Marshal(v)
+	if err := ioutil.WriteFile(file.Name(), json_bytes, 777); err != nil {
+		fmt.Printf("Error initializing storage file: %v\n", err.Error())
+	}
+}
+
+func listToArray(list *list.List) []string {
+	arr := make([]string, 0)
+	for elem := list.Front(); elem != nil; elem = elem.Next() {
+		s, _ := elem.Value.(string)
+		arr = append(arr, s)
+	}
+	return arr
 }

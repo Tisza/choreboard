@@ -89,9 +89,9 @@ func (c *Chore) assignUser(userName string, reportTime string) {
 	c.ReportedTime = reportTime
 }
 
-func initSummonsOrder(args... string) *list.List {
+func initSummonsOrder(args ...string) *list.List {
 	queue := list.New()
-	for arg := range args {
+	for _, arg := range args {
 		queue.PushBack(arg)
 	}
 	return queue

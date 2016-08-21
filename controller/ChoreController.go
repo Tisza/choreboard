@@ -6,10 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"github.com/emirpasic/gods/sets/hashset"
-	"encoding/json"
-	"os"
-	"io/ioutil"
-	"container/list"
 )
 
 const PORT string = "8080"
@@ -25,54 +21,7 @@ var DONE_WITH_CHORE_PARAMS = []string{"authID", "choreName"}
 
 func main() {
 
-	// initialize data structures from disk
-	var users map[string](*model.User)
-	var chores map[string](*model.Chore)
-	var todoChoreQ *list.List
-	var summoningOrder *list.List
-
-	var tmpChoreQ []string
-	var tmpOrder []string
-
-
-	// ensure files for data structures exist, and create them if they don't
-
-	if _, err := os.Stat(model.USERS_FILENAME); os.IsNotExist(err) {
-		initializeStorageFile(model.USERS_FILENAME, model.Users)
-	}
-
-	if _, err := os.Stat(model.CHORES_FILENAME); os.IsNotExist(err) {
-		initializeStorageFile(model.CHORES_FILENAME, model.Chores)
-	}
-
-	if _, err := os.Stat(model.CHOREQ_FILENAME); os.IsNotExist(err) {
-		initializeStorageFile(model.CHOREQ_FILENAME, listToSlice(model.TodoChoreQ))
-	}
-
-	if _, err := os.Stat(model.SUMMONING_ORDER_FILENAME); os.IsNotExist(err) {
-		initializeStorageFile(model.SUMMONING_ORDER_FILENAME, listToSlice(model.SummoningOrder))
-	}
-
-	user_bytes, _ := ioutil.ReadFile(model.USERS_FILENAME)
-	json.Unmarshal(user_bytes, &users)
-
-	chores_bytes, _ := ioutil.ReadFile(model.CHORES_FILENAME)
-	json.Unmarshal(chores_bytes, &chores)
-
-	todoChoreQ_bytes, _ := ioutil.ReadFile(model.CHOREQ_FILENAME)
-	json.Unmarshal(todoChoreQ_bytes, &tmpChoreQ)
-
-	summoningOrder_bytes, _ := ioutil.ReadFile(model.SUMMONING_ORDER_FILENAME)
-	json.Unmarshal(summoningOrder_bytes, &tmpOrder)
-
-	todoChoreQ = sliceToList(tmpChoreQ)
-	summoningOrder = sliceToList(tmpOrder)
-
-	// TODO: figure out a way to refactor channel initialization to model
-	model.UsersChan <- users
-	model.ChoresChan <- chores
-	model.TodoChoreQChan <- todoChoreQ
-	model.SummoningOrderChan <- summoningOrder
+	model.InititalizeDataStructures()
 
 	http.HandleFunc("/userStatus", badRequestFilter(handleUserStatus, USER_STATUS_PARAMS))
 	http.HandleFunc("/acceptChore", badRequestFilter(handleAcceptChore, ACCEPT_CHORE_PARAMS))
@@ -204,29 +153,4 @@ func eq(a *hashset.Set, b []string) bool {
 		}
 	}
 	return true
-}
-
-func initializeStorageFile(filename string, v interface{}) {
-	file, _ := os.Create(filename)
-	json_bytes, _ := json.Marshal(v)
-	if err := ioutil.WriteFile(file.Name(), json_bytes, 777); err != nil {
-		fmt.Printf("Error initializing storage file: %v\n", err.Error())
-	}
-}
-
-func listToSlice(list *list.List) []string {
-	arr := make([]string, 0)
-	for elem := list.Front(); elem != nil; elem = elem.Next() {
-		s, _ := elem.Value.(string)
-		arr = append(arr, s)
-	}
-	return arr
-}
-
-func sliceToList(arr []string) *list.List {
-	list := list.New()
-	for _, s := range arr {
-		list.PushBack(s)
-	}
-	return list
 }

@@ -9,6 +9,7 @@ import (
 	"container/list"
 	"errors"
 	"os"
+	"io/ioutil"
 )
 
 /**
@@ -290,6 +291,56 @@ func DoneWithChore(authID string, choreName string) HttpStatus {
 	}, authID)
 }
 
+// sets up storage files if none exist, read in data structures, and assign them to their appropriate channels
+func InititalizeDataStructures() {
+
+	// initialize data structures from disk
+	var users map[string](*User)
+	var chores map[string](*Chore)
+	var todoChoreQ *list.List
+	var summoningOrder *list.List
+
+	var tmpChoreQ []string
+	var tmpOrder []string
+
+
+	// ensure files for data structures exist, and create them if they don't
+	if _, err := os.Stat(USERS_FILENAME); os.IsNotExist(err) {
+		initializeStorageFile(USERS_FILENAME, Users)
+	}
+	if _, err := os.Stat(CHORES_FILENAME); os.IsNotExist(err) {
+		initializeStorageFile(CHORES_FILENAME, Chores)
+	}
+	if _, err := os.Stat(CHOREQ_FILENAME); os.IsNotExist(err) {
+		initializeStorageFile(CHOREQ_FILENAME, listToSlice(TodoChoreQ))
+	}
+	if _, err := os.Stat(SUMMONING_ORDER_FILENAME); os.IsNotExist(err) {
+		initializeStorageFile(SUMMONING_ORDER_FILENAME, listToSlice(SummoningOrder))
+	}
+
+	// read in structures from storage
+	user_bytes, _ := ioutil.ReadFile(USERS_FILENAME)
+	json.Unmarshal(user_bytes, &users)
+
+	chores_bytes, _ := ioutil.ReadFile(CHORES_FILENAME)
+	json.Unmarshal(chores_bytes, &chores)
+
+	todoChoreQ_bytes, _ := ioutil.ReadFile(CHOREQ_FILENAME)
+	json.Unmarshal(todoChoreQ_bytes, &tmpChoreQ)
+
+	summoningOrder_bytes, _ := ioutil.ReadFile(SUMMONING_ORDER_FILENAME)
+	json.Unmarshal(summoningOrder_bytes, &tmpOrder)
+
+	todoChoreQ = sliceToList(tmpChoreQ)
+	summoningOrder = sliceToList(tmpOrder)
+
+	// assign data structures to appropriate channels
+	UsersChan <- users
+	ChoresChan <- chores
+	TodoChoreQChan <- todoChoreQ
+	SummoningOrderChan <- summoningOrder
+}
+
 // ============================== Helpers ===================== //
 
 
@@ -415,4 +466,29 @@ func marshalAndValidate(v interface{}) ([]byte, HttpStatus) {
 	} else {
 		return json, OK
 	}
+}
+
+func initializeStorageFile(filename string, v interface{}) {
+	file, _ := os.Create(filename)
+	json_bytes, _ := json.Marshal(v)
+	if err := ioutil.WriteFile(file.Name(), json_bytes, 777); err != nil {
+		fmt.Printf("Error initializing storage file: %v\n", err.Error())
+	}
+}
+
+func listToSlice(list *list.List) []string {
+	arr := make([]string, 0)
+	for elem := list.Front(); elem != nil; elem = elem.Next() {
+		s, _ := elem.Value.(string)
+		arr = append(arr, s)
+	}
+	return arr
+}
+
+func sliceToList(arr []string) *list.List {
+	list := list.New()
+	for _, s := range arr {
+		list.PushBack(s)
+	}
+	return list
 }

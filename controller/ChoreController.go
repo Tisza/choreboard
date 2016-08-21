@@ -31,6 +31,9 @@ func main() {
 	var todoChoreQ *list.List
 	var summoningOrder *list.List
 
+	var tmpChoreQ []string
+	var tmpOrder []string
+
 
 	// ensure files for data structures exist, and create them if they don't
 
@@ -43,11 +46,11 @@ func main() {
 	}
 
 	if _, err := os.Stat(model.CHOREQ_FILENAME); os.IsNotExist(err) {
-		initializeStorageFile(model.CHOREQ_FILENAME, listToArray(model.TodoChoreQ))
+		initializeStorageFile(model.CHOREQ_FILENAME, listToSlice(model.TodoChoreQ))
 	}
 
 	if _, err := os.Stat(model.SUMMONING_ORDER_FILENAME); os.IsNotExist(err) {
-		initializeStorageFile(model.SUMMONING_ORDER_FILENAME, listToArray(model.SummoningOrder))
+		initializeStorageFile(model.SUMMONING_ORDER_FILENAME, listToSlice(model.SummoningOrder))
 	}
 
 	user_bytes, _ := ioutil.ReadFile(model.USERS_FILENAME)
@@ -57,11 +60,13 @@ func main() {
 	json.Unmarshal(chores_bytes, &chores)
 
 	todoChoreQ_bytes, _ := ioutil.ReadFile(model.CHOREQ_FILENAME)
-	json.Unmarshal(todoChoreQ_bytes, &todoChoreQ)
+	json.Unmarshal(todoChoreQ_bytes, &tmpChoreQ)
 
 	summoningOrder_bytes, _ := ioutil.ReadFile(model.SUMMONING_ORDER_FILENAME)
-	json.Unmarshal(summoningOrder_bytes, &summoningOrder)
+	json.Unmarshal(summoningOrder_bytes, &tmpOrder)
 
+	todoChoreQ = sliceToList(tmpChoreQ)
+	summoningOrder = sliceToList(tmpOrder)
 
 	// TODO: figure out a way to refactor channel initialization to model
 	model.UsersChan <- users
@@ -171,17 +176,10 @@ func getParams(r *http.Request) *hashset.Set {
 // NOTE: r.Form is ready to be examined after running this function
 func isBadRequest(w http.ResponseWriter, r *http.Request, expectedParams []string) bool {
 	r.ParseForm()
-	//fmt.Println("Form: ", r.Form)
-	//fmt.Println("Expected Parameters: ", expectedParams)
 	requestParams := getParams(r)
-	//fmt.Println("Request Parameters: ", requestParams)
-	//fmt.Println()
 
 	if !eq(requestParams, expectedParams) {
 		// uh oh, we got a 400 Bad Request over 'ere
-		//println("bad request")
-		//fmt.Printf("%s\n", requestParams)
-		//fmt.Printf("%s\n", expectedParams)
 		w.WriteHeader(http.StatusBadRequest)
 		return true
 	} else {
@@ -216,11 +214,19 @@ func initializeStorageFile(filename string, v interface{}) {
 	}
 }
 
-func listToArray(list *list.List) []string {
+func listToSlice(list *list.List) []string {
 	arr := make([]string, 0)
 	for elem := list.Front(); elem != nil; elem = elem.Next() {
 		s, _ := elem.Value.(string)
 		arr = append(arr, s)
 	}
 	return arr
+}
+
+func sliceToList(arr []string) *list.List {
+	list := list.New()
+	for _, s := range arr {
+		list.PushBack(s)
+	}
+	return list
 }

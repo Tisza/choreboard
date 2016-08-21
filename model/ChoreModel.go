@@ -167,9 +167,9 @@ func AcceptChore(authID string, deadline string) HttpStatus {
 				choreQ.Remove(tmp)  // TODO: test this
 				
 				// mutation occurred, write changes to disk
-				encodeJSON(USERS_FILENAME, users)
-				encodeJSON(CHORES_FILENAME, chores)
-				encodeJSON(CHOREQ_FILENAME, choreQ)
+				writeToJsonStorageFile(USERS_FILENAME, users)
+				writeToJsonStorageFile(CHORES_FILENAME, chores)
+				writeToJsonStorageFile(CHOREQ_FILENAME, listToSlice(choreQ))
 
 				return OK
 			}
@@ -192,17 +192,17 @@ func DeclineChore(authID string) HttpStatus {
 		user := users[authID]
 
 		if choreExists(choreName, chores) {
-			if !user.isAssigned() {
+			if !user.isAssigned() && user.Summoned {
 				user.declineChore(chores[choreName].AmtOfShame)
-				summoningOrder.PushFront(user)
+				summoningOrder.PushBack(user.AuthID)
 				
 				// mutation occurred, write changes to disk
-				encodeJSON(USERS_FILENAME, users)
-				encodeJSON(SUMMONING_ORDER_FILENAME, summoningOrder)
+				writeToJsonStorageFile(USERS_FILENAME, users)
+				writeToJsonStorageFile(SUMMONING_ORDER_FILENAME, listToSlice(summoningOrder))
 
 				return OK
 			}
-			return HttpStatus{500, fmt.Sprintf("user is already assigned to a chore: %s", users[authID].AssignedChore)}
+			return HttpStatus{500, fmt.Sprintf("user is already assigned to a chore or has not been summoned\nAssigned Chore: %s\nSummoned: %v", user.AssignedChore, user.Summoned)}
 		}
 		return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist or is already active", choreName)}
 	}, authID)
@@ -244,10 +244,10 @@ func ReportChore(authID string, choreName string) HttpStatus {
 				chores[choreName].ReportedTime = time.Now().Local().Format(time.RFC1123)
 
 				// mutation occurred, write changes to disk
-				encodeJSON(USERS_FILENAME, users)
-				encodeJSON(CHORES_FILENAME, chores)
-				encodeJSON(CHOREQ_FILENAME, choreQ)
-				encodeJSON(SUMMONING_ORDER_FILENAME, summoningOrder)
+				writeToJsonStorageFile(USERS_FILENAME, users)
+				writeToJsonStorageFile(CHORES_FILENAME, chores)
+				writeToJsonStorageFile(CHOREQ_FILENAME, listToSlice(choreQ))
+				writeToJsonStorageFile(SUMMONING_ORDER_FILENAME, listToSlice(summoningOrder))
 				
 				return OK
 			}
@@ -276,9 +276,9 @@ func DoneWithChore(authID string, choreName string) HttpStatus {
 				summoningOrder.PushBack(user.AuthID)
 
 				// mutation occurred, write changes to disk
-				encodeJSON(USERS_FILENAME, users)
-				encodeJSON(CHORES_FILENAME, chores)
-				encodeJSON(SUMMONING_ORDER_FILENAME, summoningOrder)
+				writeToJsonStorageFile(USERS_FILENAME, users)
+				writeToJsonStorageFile(CHORES_FILENAME, chores)
+				writeToJsonStorageFile(SUMMONING_ORDER_FILENAME, listToSlice(summoningOrder))
 
 				return OK
 			}
@@ -379,8 +379,8 @@ func nextUserToSummon(summoningOrder *list.List, users map[string](*User)) (*Use
 	if summoningOrder.Len() == 0 {
 		return nil, errors.New("All users are summoned or assigned to a task!")
 	} else {
-		user := summoningOrder.Front().Value.(*User)
-		return users[user.AuthID], nil
+		authID := summoningOrder.Front().Value.(string)
+		return users[authID], nil
 	}
 }
 
@@ -437,11 +437,6 @@ func passwordCheck(authID string, password string) bool {
 //
 //}
 
-func encodeJSON(filename string, object interface{}) {
-	file, _ := os.Open(filename)
-	enc := json.NewEncoder(file)
-	enc.Encode(object)
-}
 
 // gets internal data structures synchronously with other goroutine handlers
 func aqcuireInternals() (map[string](*User), map[string](*Chore), *list.List, *list.List) {
@@ -468,8 +463,18 @@ func marshalAndValidate(v interface{}) ([]byte, HttpStatus) {
 	}
 }
 
+func writeToJsonStorageFile(filename string, v interface{}) {
+	file, _ := os.Open(filename)
+	marshalAndWrite(file, v)
+
+}
+
 func initializeStorageFile(filename string, v interface{}) {
 	file, _ := os.Create(filename)
+	marshalAndWrite(file, v)
+}
+
+func marshalAndWrite(file *os.File, v interface{}) {
 	json_bytes, _ := json.Marshal(v)
 	if err := ioutil.WriteFile(file.Name(), json_bytes, 777); err != nil {
 		fmt.Printf("Error initializing storage file: %v\n", err.Error())

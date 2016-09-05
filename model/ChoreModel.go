@@ -4,16 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 	"container/list"
 	"errors"
 	"os"
 	"io/ioutil"
+	"hash/fnv"
 )
 
 /**
-TODO: more obfuscating authID reviersible hash
 TODO: write unit tests
 TODO; write integration tests
 */
@@ -37,9 +36,7 @@ const SUMMONING_ORDER_FILENAME = "summoningOrder.json"
 
 // holds state information of a user
 type User struct {
-	AuthID       string
 	FriendlyName string
-	Password string
 	AssignedChore string        // assigned chore name, otherwise empty string
 	Deadline string     // UTC local time for chore deadline if assigned, otherwise empty string
 	Shame int
@@ -77,7 +74,6 @@ type Chore struct {
 	NeedsWork       bool
 	ReportedTime string // UTC local time for chore deadline
 	Description  string // description of chore
-	ChoreName    string
 }
 
 func (c *Chore) isActive() bool {
@@ -113,22 +109,40 @@ func (e HttpStatus) Error() string {
 
 
 // a map of authIDs tp the state of known users
-var Users = map[string](*User){"drew:bass": &User{"drew:bass", "drew", "bass", INVALID_CHORE, "", 0, false},
-								"logan:huskies": &User{"logan:huskies", "logan", "huskies", INVALID_CHORE, "", 0, false},
-								"katie:kittens": &User{"katie:kittens", "katie", "kittens", INVALID_CHORE, "", 0, false}} // key: authId
+var Users = map[string](*User){"201849424": &User{"drew", INVALID_CHORE, "", 0, false},
+								"2897112466": &User{"logan", INVALID_CHORE, "", 0, false},
+								"2825122131": &User{"katie", INVALID_CHORE, "", 0, false},
+								"3292495916": &User{"steve", INVALID_CHORE, "", 0, false},
+								"657641543": &User{"tim", INVALID_CHORE, "", 0, false},
+								"1044239700": &User{"alan", INVALID_CHORE, "", 0, false},
+								} // key: authId
 
 // a map of chore names to the state of known chores
-var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, false, "", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink", "Dishes"},
-									"Trash": &Chore{INVALID_ASSIGNEE, 2, false, "", "Move trash and recycling from the kitchen to their bins outside. If the recycling is full, use the dumpster next to Jak's", "Trash"},
-									"Kitchen Counter": &Chore{INVALID_ASSIGNEE, 3, false, "", "Clear objects off of the kitchen counter. Dishes are put into the sink. Wipe down the counter.", "Kitchen Counter"},
-									"Kitchen Floor": &Chore{INVALID_ASSIGNEE, 3, false, "", "Pick up items off the floor in the kitchen (including next to the trash!). Mop the floor.", "Kitchen Floor"}} // key: choreName
+var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, false, "", "Put away clean dishes from the dishwasher and reload the dishwasher with dishes from the sink"},
+									"Trash": &Chore{INVALID_ASSIGNEE, 2, false, "", "Move trash/recycling/compost from the kitchen to their bins outside. If the recycling is full, use the dumpster next to Jak's"},
+									"Kitchen Counter": &Chore{INVALID_ASSIGNEE, 3, false, "", "Clear objects off of the kitchen counter. Dishes are put into the sink. Wipe down the counter."},
+									"Kitchen Floor": &Chore{INVALID_ASSIGNEE, 3, false, "", "Pick up items off the floor in the kitchen (including next to the trash!). Sweep and Mop the floor."},
+									"Dining Room Pickup": &Chore{INVALID_ASSIGNEE, 3, false, "", "Coordinate with mates to clear out personal items from the common space. Throw away large trash."},
+									"Dining Room Floor": &Chore{INVALID_ASSIGNEE, 3, false, "", "Sweep and mop the dining room floor"},
+									"Whiteboard": &Chore{INVALID_ASSIGNEE, 3, false, "", "Clean the whiteboard with 'whiteboard cleaner'. If 'Save' is written, take a picture of the whiteboard before cleaning"},
+									"Stairs": &Chore{INVALID_ASSIGNEE, 3, false, "", "Sweep the stairs"},
+									"Upstairs Bathroom Fixtures": &Chore{INVALID_ASSIGNEE, 3, false, "", "Clean toilet, sink, tub"},
+									"Downstairs Bathroom Fixtures": &Chore{INVALID_ASSIGNEE, 3, false, "", "Clean toilet, sink, tub"},
+									"Upstairs Bathroom Floor/Trash": &Chore{INVALID_ASSIGNEE, 3, false, "", "Take out trash and clean the floor of the bathroom"},
+									"Downatairs Bathroom Floor/Trash": &Chore{INVALID_ASSIGNEE, 3, false, "", "Take out trash and clean the floor of the bathroom"},
+									"Living Room Pickup": &Chore{INVALID_ASSIGNEE, 3, false, "", "Coordinate with mates to clear out personal items from the common space.  Throw away large trash."},
+									"Living Room Floor": &Chore{INVALID_ASSIGNEE, 3, false, "", "Sweep/vacuum the living room floor"},
+									"Upstairs Hallway": &Chore{INVALID_ASSIGNEE, 3, false, "", "Sweep and mop the upstairs hallway"},
+									"Downstairs Floor": &Chore{INVALID_ASSIGNEE, 3, false, "", "Sweep/vacuum the downstairs common floor"},
+									"Downstairs Recycling": &Chore{INVALID_ASSIGNEE, 3, false, "", "Take the recycling pile downstairs directly outside"},
+								} // key: choreName
 
 // a queue to hold chores that have been reported. Chores in this queue need to be done, but have not been assigned
 var TodoChoreQ = list.New()
 
 // a queue to provide a summoning order. Users that have been summoned and accept chores will be placed at the back of the queue,
 // whereas users that are summoned and decline chores will be placed at the front, so that they will be the next person notified to do work
-var SummoningOrder = initSummonsOrder("drew:bass", "logan:huskies", "katie:kittens")
+var SummoningOrder = initSummonsOrder("201849424", "2897112466", "2825122131", "3292495916", "657641543", "1044239700")
 
 // channels used to synchronize access to other data structures between concurrently operating handlers
 var UsersChan = make(chan map[string](*User), 1)
@@ -163,7 +177,7 @@ func AcceptChore(authID string, deadline string) HttpStatus {
 			if !user.isAssigned() {
 				user.acceptChore(choreName, deadline)
 				chores[choreName].Assignee = user.FriendlyName
-				choreQ.Remove(tmp)  // TODO: test this
+				choreQ.Remove(tmp)
 				
 				// mutation occurred, write changes to disk
 				writeToJsonStorageFile(USERS_FILENAME, users)
@@ -192,15 +206,15 @@ func DeclineChore(authID string) HttpStatus {
 
 		if choreExists(choreName, chores) {
 			if !user.isAssigned() && user.Summoned {
-				nextUser, err := nextUserToSummon(summoningOrder, users)
+				nextUserAuthID, err := nextUserToSummon(summoningOrder)
 				if err == nil {
-
+					nextUser := users[nextUserAuthID]
 					user.declineChore(chores[choreName].AmtOfShame)
 
 					nextUser.Summoned = true
-					removeUserFromSummoningOrder(summoningOrder, nextUser)
+					removeUserFromSummoningOrder(summoningOrder, nextUserAuthID)
 
-					summoningOrder.PushFront(user.AuthID)
+					summoningOrder.PushFront(authID)
 
 					// mutation occurred, write changes to disk
 					writeToJsonStorageFile(USERS_FILENAME, users)
@@ -219,7 +233,7 @@ func DeclineChore(authID string) HttpStatus {
 // returns a JSON object with information about all of the chores
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
-		return choreList(chores)
+		return chores
 	}, func(){}, authID)
 }
 
@@ -242,12 +256,13 @@ func ReportChore(authID string, choreName string) HttpStatus {
 		if choreExists(choreName, chores) &&
 			!chores[choreName].isActive() &&
 			!choreQContains(choreQ, choreName) {
-			nextUser, err := nextUserToSummon(summoningOrder, users)
+			nextUserAuthID, err := nextUserToSummon(summoningOrder)
 			if err == nil {
+				nextUser := users[nextUserAuthID]
 				// chore exists and is inactive, so we'll put it into the queue of to-do chores, and update appropriate objects
 				choreQ.PushBack(choreName)
 				nextUser.Summoned = true
-				removeUserFromSummoningOrder(summoningOrder, nextUser)
+				removeUserFromSummoningOrder(summoningOrder, nextUserAuthID)
 				chores[choreName].NeedsWork = true
 				chores[choreName].ReportedTime = time.Now().Local().Format(time.RFC1123)
 
@@ -281,7 +296,7 @@ func DoneWithChore(authID string, choreName string) HttpStatus {
 				chores[choreName].NeedsWork = false
 				chores[choreName].ReportedTime = ""
 				user.unassign()
-				summoningOrder.PushBack(user.AuthID)
+				summoningOrder.PushBack(authID)
 
 				// mutation occurred, write changes to disk
 				writeToJsonStorageFile(USERS_FILENAME, users)
@@ -383,18 +398,18 @@ func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *l
 	}
 }
 
-func nextUserToSummon(summoningOrder *list.List, users map[string](*User)) (*User, error) {
+func nextUserToSummon(summoningOrder *list.List) (string, error) {
 	if summoningOrder.Len() == 0 {
-		return nil, errors.New("All users are summoned or assigned to a task!")
+		return "", errors.New("All users are summoned or assigned to a task!")
 	} else {
 		authID := summoningOrder.Front().Value.(string)
-		return users[authID], nil
+		return authID, nil
 	}
 }
 
-func removeUserFromSummoningOrder(summoningOrder *list.List, user *User) {
+func removeUserFromSummoningOrder(summoningOrder *list.List, authID string) {
 	for elem := summoningOrder.Front(); true; elem = elem.Next() {
-		if elem.Value == user.AuthID {
+		if elem.Value == authID {
 			summoningOrder.Remove(elem)
 			return
 		}
@@ -402,12 +417,7 @@ func removeUserFromSummoningOrder(summoningOrder *list.List, user *User) {
 }
 
 func constructAuthID(friendlyName string, password string) string {
-	return friendlyName + ":" + password
-}
-
-func deconstructAuthID(authID string) (string, string) {
-	split := strings.Split(authID, ":")
-	return split[0], split[1]
+	return fmt.Sprint(hash(friendlyName + password))
 }
 
 func verifyAuthID(authID string, users map[string](*User)) bool {
@@ -420,13 +430,13 @@ func choreExists(choreName string, chores map[string](*Chore)) bool {
 	return ok
 }
 
-func choreList(chores map[string](*Chore)) []Chore {
-	cl := make([]Chore, 0)
-	for choreName := range chores {
-		cl = append(cl, *chores[choreName])
-	}
-	return cl
-}
+//func choreList(chores map[string](*Chore)) []Chore {
+//	cl := make([]Chore, 0)
+//	for choreName := range chores {
+//		cl = append(cl, *chores[choreName])
+//	}
+//	return cl
+//}
 
 func choreQContains(choreQ *list.List, choreName interface{}) bool {
 	for currChoreName := choreQ.Front(); currChoreName != nil; currChoreName = currChoreName.Next() {
@@ -436,15 +446,6 @@ func choreQContains(choreQ *list.List, choreName interface{}) bool {
 	}
 	return false
 }
-
-func passwordCheck(authID string, password string) bool {
-	return true
-}
-
-//func addUser(u User) {
-//
-//}
-
 
 // gets internal data structures synchronously with other goroutine handlers
 func aqcuireInternals() (map[string](*User), map[string](*Chore), *list.List, *list.List) {
@@ -504,4 +505,10 @@ func sliceToList(arr []string) *list.List {
 		list.PushBack(s)
 	}
 	return list
+}
+
+func hash(s string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return h.Sum32()
 }

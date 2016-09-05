@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"github.com/Workiva/go-datastructures/queue"
 	"time"
 	"container/list"
 	"errors"
+	"os"
+	"io/ioutil"
 )
 
 /**
 TODO: more obfuscating authID reviersible hash
-TODO: hold persistent data in .json files
 TODO: write unit tests
 TODO; write integration tests
 */
@@ -25,6 +25,11 @@ TODO; write integration tests
 const INVALID_CHORE = ""
 const INVALID_ASSIGNEE = ""
 var OK = HttpStatus{200, "OK"}
+
+const USERS_FILENAME = "users.json"
+const CHORES_FILENAME = "chores.json"
+const CHOREQ_FILENAME = "todoChoreQ.json"
+const SUMMONING_ORDER_FILENAME = "summoningOrder.json"
 
 
 
@@ -84,9 +89,9 @@ func (c *Chore) assignUser(userName string, reportTime string) {
 	c.ReportedTime = reportTime
 }
 
-func initSummonsOrder(args... string) *list.List {
+func initSummonsOrder(args ...string) *list.List {
 	queue := list.New()
-	for arg := range args {
+	for _, arg := range args {
 		queue.PushBack(arg)
 	}
 	return queue
@@ -119,7 +124,7 @@ var Chores = map[string](*Chore){"Dishes": &Chore{INVALID_ASSIGNEE, 3, false, ""
 									"Kitchen Floor": &Chore{INVALID_ASSIGNEE, 3, false, "", "Pick up items off the floor in the kitchen (including next to the trash!). Mop the floor.", "Kitchen Floor"}} // key: choreName
 
 // a queue to hold chores that have been reported. Chores in this queue need to be done, but have not been assigned
-var TodoChoreQ = queue.New(0)
+var TodoChoreQ = list.New()
 
 // a queue to provide a summoning order. Users that have been summoned and accept chores will be placed at the back of the queue,
 // whereas users that are summoned and decline chores will be placed at the front, so that they will be the next person notified to do work
@@ -128,7 +133,7 @@ var SummoningOrder = initSummonsOrder("drew:bass", "logan:huskies", "katie:kitte
 // channels used to synchronize access to other data structures between concurrently operating handlers
 var UsersChan = make(chan map[string](*User), 1)
 var ChoresChan = make(chan map[string](*Chore), 1)
-var TodoChoreQChan = make(chan *queue.Queue, 1)
+var TodoChoreQChan = make(chan *list.List, 1)
 var SummoningOrderChan = make(chan *list.List, 1)
 
 
@@ -136,30 +141,34 @@ var SummoningOrderChan = make(chan *list.List, 1)
 
 // returns JSON object with information about a particular user
 func GetUserStatus(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) interface{} {
-		user := users[authID]
-		return user
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
+		return users[authID]
 	}, func(){}, authID)
 }
 
 // assigns the first chore in the queue of to-do chores to the summoned user with authID, and returns 200 OK
 // otherwise returns 500 HttpStatus with error message
 func AcceptChore(authID string, deadline string) HttpStatus {
-	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) HttpStatus {
 
-		if choreQ.Empty() {
+		if choreQ.Len() == 0 {
 			return HttpStatus{500, fmt.Sprint("queue of to-do chores is empty. nothing to accept")}
 		}
 
-		tmp, _ := choreQ.Peek()
-		choreName := tmp.(string)
+		tmp := choreQ.Front()
+		choreName := tmp.Value.(string)
 		user := users[authID]
 
 		if choreExists(choreName, chores) {
 			if !user.isAssigned() {
 				user.acceptChore(choreName, deadline)
 				chores[choreName].Assignee = user.FriendlyName
-				choreQ.Get(1)  // throw it on the GROUND
+				choreQ.Remove(tmp)  // TODO: test this
+				
+				// mutation occurred, write changes to disk
+				writeToJsonStorageFile(USERS_FILENAME, users)
+				writeToJsonStorageFile(CHORES_FILENAME, chores)
+				writeToJsonStorageFile(CHOREQ_FILENAME, listToSlice(choreQ))
 
 				return OK
 			}
@@ -171,24 +180,37 @@ func AcceptChore(authID string, deadline string) HttpStatus {
 
 // user with authID is declining this chore, so their shame is increased and are marked as no longer summoned
 func DeclineChore(authID string) HttpStatus {
-	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) HttpStatus {
 
-		if choreQ.Empty() {
+		if choreQ.Len() == 0 {
 			return HttpStatus{500, fmt.Sprint("queue of to-do chores is empty. nothing to accept")}
 		}
 
-		tmp, _ := choreQ.Peek()
-		choreName := tmp.(string)
+		tmp := choreQ.Front()
+		choreName := tmp.Value.(string)
 		user := users[authID]
 
 		if choreExists(choreName, chores) {
-			if !user.isAssigned() {
-				user.declineChore(chores[choreName].AmtOfShame)
-				summoningOrder.PushFront(user)
+			if !user.isAssigned() && user.Summoned {
+				nextUser, err := nextUserToSummon(summoningOrder, users)
+				if err == nil {
 
-				return OK
+					user.declineChore(chores[choreName].AmtOfShame)
+
+					nextUser.Summoned = true
+					removeUserFromSummoningOrder(summoningOrder, nextUser)
+
+					summoningOrder.PushFront(user.AuthID)
+
+					// mutation occurred, write changes to disk
+					writeToJsonStorageFile(USERS_FILENAME, users)
+					writeToJsonStorageFile(SUMMONING_ORDER_FILENAME, listToSlice(summoningOrder))
+
+					return OK
+				}
+				return HttpStatus{500, fmt.Sprintf("SummonOrderError: %s", err.Error())}
 			}
-			return HttpStatus{500, fmt.Sprintf("user is already assigned to a chore: %s", users[authID].AssignedChore)}
+			return HttpStatus{500, fmt.Sprintf("user is already assigned to a chore or has not been summoned\nAssigned Chore: %s\nSummoned: %v", user.AssignedChore, user.Summoned)}
 		}
 		return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist or is already active", choreName)}
 	}, authID)
@@ -196,7 +218,7 @@ func DeclineChore(authID string) HttpStatus {
 
 // returns a JSON object with information about all of the chores
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
 		return choreList(chores)
 	}, func(){}, authID)
 }
@@ -204,7 +226,7 @@ func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 // verifies that user with friendlyName and password exists, and returns a custom authID that will be used as an identifier for their session
 func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 	authID := constructAuthID(friendlyName, password)
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
 		// everything checks out, return back the authID and OK status
 		return authID
 	}, func() {
@@ -216,18 +238,25 @@ func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 // reports that a chore needs work and summons the next user in the summons ordering, returns 200 OK. (Note that the user summoned at this time won't necessarily be assigned to this chore)
 // otherwise returns 500 HttpStatus with error message
 func ReportChore(authID string, choreName string) HttpStatus {
-	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) HttpStatus {
 		if choreExists(choreName, chores) &&
 			!chores[choreName].isActive() &&
 			!choreQContains(choreQ, choreName) {
 			nextUser, err := nextUserToSummon(summoningOrder, users)
 			if err == nil {
 				// chore exists and is inactive, so we'll put it into the queue of to-do chores, and update appropriate objects
-				choreQ.Put(choreName)
+				choreQ.PushBack(choreName)
 				nextUser.Summoned = true
 				removeUserFromSummoningOrder(summoningOrder, nextUser)
 				chores[choreName].NeedsWork = true
 				chores[choreName].ReportedTime = time.Now().Local().Format(time.RFC1123)
+
+				// mutation occurred, write changes to disk
+				writeToJsonStorageFile(USERS_FILENAME, users)
+				writeToJsonStorageFile(CHORES_FILENAME, chores)
+				writeToJsonStorageFile(CHOREQ_FILENAME, listToSlice(choreQ))
+				writeToJsonStorageFile(SUMMONING_ORDER_FILENAME, listToSlice(summoningOrder))
+				
 				return OK
 			}
 			return HttpStatus{500, fmt.Sprintf("SummonOrderError: %s", err.Error())}
@@ -241,7 +270,7 @@ func ReportChore(authID string, choreName string) HttpStatus {
 
 // a user with authID has finished choreName, so we unassign them and move them to the back of the summons ordering
 func DoneWithChore(authID string, choreName string) HttpStatus {
-	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) HttpStatus {
+	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) HttpStatus {
 		if choreExists(choreName, chores) &&
 			chores[choreName].isActive() &&
 			!choreQContains(choreQ, choreName) {
@@ -254,6 +283,11 @@ func DoneWithChore(authID string, choreName string) HttpStatus {
 				user.unassign()
 				summoningOrder.PushBack(user.AuthID)
 
+				// mutation occurred, write changes to disk
+				writeToJsonStorageFile(USERS_FILENAME, users)
+				writeToJsonStorageFile(CHORES_FILENAME, chores)
+				writeToJsonStorageFile(SUMMONING_ORDER_FILENAME, listToSlice(summoningOrder))
+
 				return OK
 			}
 			return HttpStatus{500, fmt.Sprintf("user '%s' is not assigned to this chore: %s", user.FriendlyName, user.AssignedChore)}
@@ -265,12 +299,62 @@ func DoneWithChore(authID string, choreName string) HttpStatus {
 	}, authID)
 }
 
+// sets up storage files if none exist, read in data structures, and assign them to their appropriate channels
+func InititalizeDataStructures() {
+
+	// initialize data structures from disk
+	var users map[string](*User)
+	var chores map[string](*Chore)
+	var todoChoreQ *list.List
+	var summoningOrder *list.List
+
+	var tmpChoreQ []string
+	var tmpOrder []string
+
+
+	// ensure files for data structures exist, and create them if they don't
+	if _, err := os.Stat(USERS_FILENAME); os.IsNotExist(err) {
+		initializeStorageFile(USERS_FILENAME, Users)
+	}
+	if _, err := os.Stat(CHORES_FILENAME); os.IsNotExist(err) {
+		initializeStorageFile(CHORES_FILENAME, Chores)
+	}
+	if _, err := os.Stat(CHOREQ_FILENAME); os.IsNotExist(err) {
+		initializeStorageFile(CHOREQ_FILENAME, listToSlice(TodoChoreQ))
+	}
+	if _, err := os.Stat(SUMMONING_ORDER_FILENAME); os.IsNotExist(err) {
+		initializeStorageFile(SUMMONING_ORDER_FILENAME, listToSlice(SummoningOrder))
+	}
+
+	// read in structures from storage
+	user_bytes, _ := ioutil.ReadFile(USERS_FILENAME)
+	json.Unmarshal(user_bytes, &users)
+
+	chores_bytes, _ := ioutil.ReadFile(CHORES_FILENAME)
+	json.Unmarshal(chores_bytes, &chores)
+
+	todoChoreQ_bytes, _ := ioutil.ReadFile(CHOREQ_FILENAME)
+	json.Unmarshal(todoChoreQ_bytes, &tmpChoreQ)
+
+	summoningOrder_bytes, _ := ioutil.ReadFile(SUMMONING_ORDER_FILENAME)
+	json.Unmarshal(summoningOrder_bytes, &tmpOrder)
+
+	todoChoreQ = sliceToList(tmpChoreQ)
+	summoningOrder = sliceToList(tmpOrder)
+
+	// assign data structures to appropriate channels
+	UsersChan <- users
+	ChoresChan <- chores
+	TodoChoreQChan <- todoChoreQ
+	SummoningOrderChan <- summoningOrder
+}
+
 // ============================== Helpers ===================== //
 
 
 // MMMMMMMMMM
 // synchronously acquires and releases internal data structures outside of given function
-func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*Chore), *queue.Queue, *list.List) interface{},
+func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*Chore), *list.List, *list.List) interface{},
 					optionalFailure func(),
 					authID string) ([]byte, HttpStatus) {
 	users, chores, choreQ, summoningOrder := aqcuireInternals()
@@ -287,7 +371,7 @@ func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*C
 
 // MMMMMMMMMM
 // synchronously acquires and releases internal data structures outside of given function
-func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *queue.Queue, *list.List) HttpStatus, authID string) HttpStatus {
+func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *list.List, *list.List) HttpStatus, authID string) HttpStatus {
 	users, chores, choreQ, summoningOrder := aqcuireInternals()
 	if verifyAuthID(authID, users) {
 		status := getStatus(users, chores, choreQ, summoningOrder)
@@ -299,16 +383,12 @@ func authFilterStatus(getStatus func(map[string](*User), map[string](*Chore), *q
 	}
 }
 
-//func setNextUser(authID string, friendlyName string) HttpStatus {
-//	return OK
-//}
-
 func nextUserToSummon(summoningOrder *list.List, users map[string](*User)) (*User, error) {
 	if summoningOrder.Len() == 0 {
 		return nil, errors.New("All users are summoned or assigned to a task!")
 	} else {
-		user := summoningOrder.Front().Value.(*User)
-		return users[user.AuthID], nil
+		authID := summoningOrder.Front().Value.(string)
+		return users[authID], nil
 	}
 }
 
@@ -348,16 +428,13 @@ func choreList(chores map[string](*Chore)) []Chore {
 	return cl
 }
 
-func choreQContains(choreQ *queue.Queue, choreName interface{}) bool {
-	choreNames, _ := choreQ.Get(choreQ.Len())
-	found := false
-	for name := range choreNames {
-		if name == choreName {
-			found = true
+func choreQContains(choreQ *list.List, choreName interface{}) bool {
+	for currChoreName := choreQ.Front(); currChoreName != nil; currChoreName = currChoreName.Next() {
+		if (currChoreName.Value == choreName) {
+			return true
 		}
-		choreQ.Put(name)
 	}
-	return found
+	return false
 }
 
 func passwordCheck(authID string, password string) bool {
@@ -368,8 +445,9 @@ func passwordCheck(authID string, password string) bool {
 //
 //}
 
+
 // gets internal data structures synchronously with other goroutine handlers
-func aqcuireInternals() (map[string](*User), map[string](*Chore), *queue.Queue, *list.List) {
+func aqcuireInternals() (map[string](*User), map[string](*Chore), *list.List, *list.List) {
 	users := <-UsersChan
 	chores := <-ChoresChan
 	choreQ := <-TodoChoreQChan
@@ -378,7 +456,7 @@ func aqcuireInternals() (map[string](*User), map[string](*Chore), *queue.Queue, 
 }
 
 // releases internal data structures in the reverse order in which they were acquired
-func releaseInternals(users map[string](*User), chores map[string](*Chore), choreQ *queue.Queue, summoningOrder *list.List) {
+func releaseInternals(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) {
 	TodoChoreQChan <- choreQ
 	ChoresChan <- chores
 	UsersChan <- users
@@ -391,4 +469,39 @@ func marshalAndValidate(v interface{}) ([]byte, HttpStatus) {
 	} else {
 		return json, OK
 	}
+}
+
+func writeToJsonStorageFile(filename string, v interface{}) {
+	file, _ := os.Open(filename)
+	marshalAndWrite(file, v)
+
+}
+
+func initializeStorageFile(filename string, v interface{}) {
+	file, _ := os.Create(filename)
+	marshalAndWrite(file, v)
+}
+
+func marshalAndWrite(file *os.File, v interface{}) {
+	json_bytes, _ := json.Marshal(v)
+	if err := ioutil.WriteFile(file.Name(), json_bytes, 777); err != nil {
+		fmt.Printf("Error initializing storage file: %v\n", err.Error())
+	}
+}
+
+func listToSlice(list *list.List) []string {
+	arr := make([]string, 0)
+	for elem := list.Front(); elem != nil; elem = elem.Next() {
+		s, _ := elem.Value.(string)
+		arr = append(arr, s)
+	}
+	return arr
+}
+
+func sliceToList(arr []string) *list.List {
+	list := list.New()
+	for _, s := range arr {
+		list.PushBack(s)
+	}
+	return list
 }

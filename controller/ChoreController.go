@@ -8,17 +8,8 @@ import (
 	"github.com/emirpasic/gods/sets/hashset"
 )
 
-/**
-TODO: implement handleUserStatus
-TODO: implement handleSignChore
-TODO: implement handleChoreBoard
-TODO: implement handleLoginUser
-TODO: implement handleReportChore
-*/
-
-//var HOST_NAME , err = externalIP()
-var PORT string = "8080"
-var HOST = ":" + PORT
+const PORT string = "8080"
+const HOST = ":" + PORT
 
 var USER_STATUS_PARAMS = []string{"authID"}
 var ACCEPT_CHORE_PARAMS = []string{"authID", "deadline"}
@@ -30,11 +21,7 @@ var DONE_WITH_CHORE_PARAMS = []string{"authID", "choreName"}
 
 func main() {
 
-	// TODO: figure out a way to refactor channel initialization to model
-	model.UsersChan <- model.Users
-	model.ChoresChan <- model.Chores
-	model.TodoChoreQChan <- model.TodoChoreQ
-	model.SummoningOrderChan <- model.SummoningOrder
+	model.InititalizeDataStructures()
 
 	http.HandleFunc("/userStatus", badRequestFilter(handleUserStatus, USER_STATUS_PARAMS))
 	http.HandleFunc("/acceptChore", badRequestFilter(handleAcceptChore, ACCEPT_CHORE_PARAMS))
@@ -138,17 +125,10 @@ func getParams(r *http.Request) *hashset.Set {
 // NOTE: r.Form is ready to be examined after running this function
 func isBadRequest(w http.ResponseWriter, r *http.Request, expectedParams []string) bool {
 	r.ParseForm()
-	//fmt.Println("Form: ", r.Form)
-	//fmt.Println("Expected Parameters: ", expectedParams)
 	requestParams := getParams(r)
-	//fmt.Println("Request Parameters: ", requestParams)
-	//fmt.Println()
 
 	if !eq(requestParams, expectedParams) {
 		// uh oh, we got a 400 Bad Request over 'ere
-		//println("bad request")
-		//fmt.Printf("%s\n", requestParams)
-		//fmt.Printf("%s\n", expectedParams)
 		w.WriteHeader(http.StatusBadRequest)
 		return true
 	} else {

@@ -15,6 +15,7 @@ var USER_STATUS_PARAMS = []string{"authID"}
 var ACCEPT_CHORE_PARAMS = []string{"authID", "deadline"}
 var DECLINE_CHORE_PARAMS = []string{"authID"}
 var CHORE_BOARD_PARAMS = []string{"authID"}
+var SCORE_BOARD_PARAMS = []string{"authID"}
 var LOGIN_USER_PARAMS = []string{"friendlyName", "password"}
 var REPORT_CHORE_PARAMS = []string{"authID", "choreName"}
 var DONE_WITH_CHORE_PARAMS = []string{"authID", "choreName"}
@@ -27,6 +28,7 @@ func main() {
 	http.HandleFunc("/acceptChore", badRequestFilter(handleAcceptChore, ACCEPT_CHORE_PARAMS))
 	http.HandleFunc("/declineChore", badRequestFilter(handleDeclineChore, DECLINE_CHORE_PARAMS))
 	http.HandleFunc("/choreBoard", badRequestFilter(handleChoreBoard, CHORE_BOARD_PARAMS))
+	http.HandleFunc("/scoreBoard", badRequestFilter(handleScoreBoard, SCORE_BOARD_PARAMS))
 	http.HandleFunc("/loginUser", badRequestFilter(handleLoginUser, LOGIN_USER_PARAMS))
 	http.HandleFunc("/reportChore", badRequestFilter(handleReportChore, REPORT_CHORE_PARAMS))
 	http.HandleFunc("/doneWithChore", badRequestFilter(handleDoneWithChore, DONE_WITH_CHORE_PARAMS))
@@ -55,6 +57,11 @@ func handleDeclineChore(w http.ResponseWriter, r *http.Request) {
 
 func handleChoreBoard(w http.ResponseWriter, r *http.Request) {
 	json, status := model.GetChoreBoard(r.Form[CHORE_BOARD_PARAMS[0]][0])
+	handleJson(w, json, status)
+}
+
+func handleScoreBoard(w http.ResponseWriter, r *http.Request) {
+	json, status := model.GetScoreBoard(r.Form[SCORE_BOARD_PARAMS[0]][0])
 	handleJson(w, json, status)
 }
 

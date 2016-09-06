@@ -67,6 +67,11 @@ func (u *User) declineChore(choreShame int) {
 	u.Summoned = false
 }
 
+type UserScore struct {
+	FriendlyName string
+	Shame int
+}
+
 // holds state information of a chore
 type Chore struct {
 	Assignee     string // the friendly name of the user assigned to this chore
@@ -234,6 +239,12 @@ func DeclineChore(authID string) HttpStatus {
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
 	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
 		return chores
+	}, func(){}, authID)
+}
+
+func GetScoreBoard(authID string) ([]byte, HttpStatus) {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
+		return getScores(users)
 	}, func(){}, authID)
 }
 
@@ -428,6 +439,16 @@ func verifyAuthID(authID string, users map[string](*User)) bool {
 func choreExists(choreName string, chores map[string](*Chore)) bool {
 	_, ok := chores[choreName]
 	return ok
+}
+
+func getScores(users map[string](*User)) ([]UserScore) {
+	scores := make([]UserScore, 0)
+	for authID := range users {
+		user := users[authID]
+		obj := UserScore{user.FriendlyName, user.Shame}
+		scores = append(scores, obj)
+	}
+	return scores
 }
 
 //func choreList(chores map[string](*Chore)) []Chore {

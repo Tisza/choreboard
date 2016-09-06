@@ -1,0 +1,7 @@
+{
+  "name": "choremaster",
+  "short_name": "choremaster",
+  "description": "Local web app to track house chore activity. ",
+  "start_url": "/",
+  "display": "standalone"
+}

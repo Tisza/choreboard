@@ -1,0 +1,145 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/paper-tabs/paper-tabs.html">
+<link rel="import" href="../../bower_components/paper-card/paper-card.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/iron-list/iron-list.html">
+<link rel="import" href="../../bower_components/paper-badge/paper-badge.html">
+
+<dom-module id="custom-boards">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+      iron-list {
+        padding: 15pt;
+      }
+      .cardcontainer {
+        padding: 15pt;
+        @apply(--layout-horizontal);
+      }
+    </style>
+    
+    <div>
+      <paper-tabs selected="0" on-iron-select="loadCards">
+        <paper-tab>ChoreBoard</paper-tab>
+        <paper-tab>ScoreBoard</paper-tab>
+      </paper-tabs>
+    </div>
+
+    <iron-list as="item" id="chores">
+      <template>
+        <div class="cardcontainer">
+          <paper-card heading="[[item.Key]]" class="flex">
+          <paper-badge label=[[item.AmtOfShame]] for="div.title-text"></paper-badge>
+            <div class="card-content">[[item.Description]]</div>
+            <div class="card-actions">
+              <paper-button disabled=[[!item.NeedsWork]] on-tap="deactiveChore([[item.Key]])">I did the chore!</paper-button>
+              <paper-button disabled=[[item.NeedsWork]] on-tap="activateChore([[item.Key]])">This chore needs to get done!</paper-button>
+            </div>
+          </paper-card>
+        </div>
+      </template>
+    </iron-list>
+
+    <iron-list as="item" id="players">
+      <template>
+        <div class="cardcontainer">
+          <paper-card heading="[[item.FriendlyName]]" class="flex">
+            <div class="card-content">[[item.Shame]]</div>
+          </paper-card>
+        </div>
+      </template>
+    </iron-list>
+
+    
+  </template>
+
+  <script>
+    function loadChoreboard() {
+      var container = document.querySelector("iron-list");
+      ajax("http://" + BACKEND + "/choreBoard?authID=" + authid,
+        function(e) {
+            // success
+            if (e.target.status == 200) {
+                // get the object and run through each chore
+                var chores = JSON.parse(e.target.responseText);
+                
+                var items = [];
+                for(key in chores) {
+                    var o = chores[key];
+                    o["Key"] = key;
+                    items.push(o);
+                };
+                container.items = items;
+                container.fire('iron-resize');
+            // incorrect auth id
+            } else if (e.target.status == 403) {
+                document.cookie = "";
+                authid = "";
+                registerUser("Please Log In:", loadChoreboard);
+            } else {
+                // some other error
+                error(e.target.status, e.target.statusText);
+            }
+        }
+      );
+    }
+
+
+    function loadScoreboard() {
+      var container = $("players");
+      ajax("http://" + BACKEND + "/scoreBoard?authID=" + authid,
+        function(e) {
+            // success
+            if (e.target.status == 200) {
+                // get the object, which is formatted for choreboard
+                var players = JSON.parse(e.target.responseText);
+                container.items = players;
+                container.fire('iron-resize');
+            // incorrect auth id
+            } else if (e.target.status == 403) {
+                document.cookie = "";
+                authid = "";
+                registerUser("Please Log In:", loadScoreboard);
+            } else {
+                // some other error
+                error(e.target.status, e.target.statusText);
+            }
+        }
+      );
+    }
+
+    Polymer({
+
+      is: 'custom-boards',
+
+      properties: {
+        prop1: {
+          type: String,
+          value: 'boards',
+        },
+      },
+
+      loadCards: function(e) {
+        var prog = document.getElementById("prog");
+        prog.disabled = false;
+        var chores = $("chores");
+        chores.items = [];
+        var players = $("players");
+        players.items = [];
+        switch(e.target.selected) {
+          default:
+          case 0:
+            loadChoreboard();
+            break;
+          case 1:
+            loadScoreboard();
+            break;
+        }
+        prog.disabled = true;
+      },
+
+    });
+  </script>
+</dom-module>

@@ -1,28 +1,18 @@
-<!DOCTYPE html>
+<!doctype html>
 
 <html>
-    <head>
-        <title>Chore Chart!</title>
-        <link type="text/css" rel="stylesheet" href="assets/style.css"/>
-        <script src="assets/script.js"></script>
-    </head>
-    <body>
-
-        <header>
-            <h1>ChoreBoard</h1>
-        </header>
-        <div id="wrapper">
-            <div id="board">
-                
-            </div>
-        </div>
-        
-        <ul id="nav">
-            <li id="navcb">Chore Board</li>
-            <li class="comingsoon">Score Board</li>
-            <li class="comingsoon">Report A Chore</li>
-            <li class="comingsoon">Annoy Everyone!</li>
-        </ul>
-        
-    </body>
+  <head>
+    <title>choremaster</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="/manifest.json">
+    <script src="/bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+    <link rel="import" href="/bower_components/paper-dialog/paper-dialog.html">
+    <link rel="import" href="/bower_components/paper-input/paper-input.html">
+    <script src="assets/script.js"></script>
+    <link rel="import" href="/src/chore-shell/chore-shell.html">
+  </head>
+  <body class="fullbleed layout vertical" style="margin: 0;">
+    <chore-shell ></chore-shell>
+  </body>
 </html>

@@ -1,0 +1,157 @@
+<link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-slider/paper-slider.html">
+
+<dom-module id="custom-prompt">
+  <template>
+    <style>
+      :host {
+
+      }
+    </style>
+    <script>
+        // private variable
+        var decidePrompt = false;
+
+      // gets a user's status and decides which ui to display (choreboard or decidechore)
+      function displaySwitch() {
+          var th = throbber();
+          ajax("http://" + BACKEND + "/userStatus?authID=" + authid, function(e) {
+              th.stop();
+              if (e.target.status == 200) {
+                  var usr = JSON.parse(e.target.responseText);
+                  if (usr.Summoned) {
+                      decideChore();
+                  }
+              } else if (e.target.status == 403) {
+                  document.cookie = "";
+                  authid = "";
+                  registerUser("Please Log In:", displaySwitch);
+              } else {
+                  // some other error
+                  error(e.target.status, e.target.statusText);
+              }
+          });
+      }
+
+      // clears and loads a display for deciding to or not to do a chore
+      function decideChore() {
+          if (decidePrompt) {
+              return false;
+          }
+          decidePrompt = true;
+          var form = document.createElement("div");
+
+          // so they know what they're doing
+          var label = document.createElement("label");
+          label.innerHTML = "deadline.";
+          form.appendChild(label);
+
+          // slider input for chore deadline
+          var deadline = document.createElement("paper-slider");
+          deadline.min = 1;
+          deadline.max = 72;
+          deadline.value = 1;
+          deadline.snaps = true;
+          deadline.step = 1;
+          deadline.id = "timespan";
+
+          // easy to read output for slider
+          var timeBox = document.createElement("p");
+          timeBox.id = "timedisplay";
+          timeBox.innerHTML = "Deadline.";
+
+          // update the read output for the slider
+          deadline.addEventListener("immediate-value-change", function(e) {
+              var val = deadline.immediateValue;
+              var now = new Date(Date.now() + 3600000 * val);
+              timeBox.innerHTML = now.toLocaleTimeString() + " " + now.toDateString();
+          });
+
+          // update the output with the time as well
+          timeBox.interval = setInterval(tickUpdate, 1000, timeBox, function() {
+              var val = deadline.immediateValue;
+              var now = new Date(Date.now() + 3600000 * val);
+              timeBox.innerHTML = now.toLocaleTimeString() + " " + now.toDateString();
+          });
+
+          form.appendChild(deadline);
+          form.appendChild(timeBox);
+
+          // accept and decline buttons
+          var accept = document.createElement("paper-button");
+          accept.innerHTML = "Accept";
+          accept.id = "accept";
+          accept.addEventListener("click", function(e) {
+              var val = deadline.immediateValue;
+              ajax("http://" + BACKEND + "/acceptChore?authID=" + authid + "&deadline=" +
+                  new Date(Date.now() + 3600000 * val).toUTCString(),
+              function(r) {
+                  decidePrompt = false;
+                  prompt.close();
+                  if (r.target.status == 200) {
+                    toast("Chore Accepted");
+                  } else {
+                      error(e.status, e.statusText);
+                  }
+              });
+          });
+
+          var deny = document.createElement("paper-button");
+          deny.innerHTML = "Decline";
+          deny.id = "deny";
+          deny.addEventListener("click", function(e) {
+              ajax("http://" + BACKEND + "/declineChore?authID=" + authid, 
+              function(r) {
+                  decidePrompt = false;
+                  prompt.close();
+                  if (r.target.status == 200) {
+                    toast("Chore Declined");
+                  } else {
+                      error(e.status, e.statusText);
+                  }
+              });
+          });
+
+          accept.classList.add("button");
+          deny.classList.add("button");
+          form.appendChild(accept);
+          form.appendChild(deny);
+
+          var prompt = newPrompt(false);
+          prompt.appendChild(form);
+      }
+
+
+      // Interval event that calls callback, stops on element DOM removal
+      // requires element has interval field set to the interval id
+      function tickUpdate(element, callback) {
+          if (element.parentNode == null) {
+              clearInterval(element.interval);
+          }
+          callback();
+      }
+
+      window.addEventListener("load", function(e) {
+        setInterval(displaySwitch, 10000);
+      });    
+    </script>
+  </template>
+  <script>
+
+
+
+    Polymer({
+
+      is: 'custom-prompt',
+
+      properties: {
+        prop1: {
+          type: String,
+          value: 'prompt',
+        },
+      },
+    });
+  </script>
+</dom-module>

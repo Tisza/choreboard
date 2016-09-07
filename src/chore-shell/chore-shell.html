@@ -8,8 +8,9 @@
 <link rel="import" href="../../bower_components/paper-styles/paper-styles.html">
 <link rel="import" href="../../bower_components/paper-menu/paper-menu.html">
 <link rel="import" href="../../bower_components/paper-card/paper-card.html">
-<link rel="import" href="../../bower_components/iron-pages/iron-pages.html">"
+<link rel="import" href="../../bower_components/iron-pages/iron-pages.html">
 <link rel="import" href="boards.html">
+<link rel="import" href="prompt.html">
 
 <dom-module id="chore-shell">
   <template>
@@ -30,15 +31,14 @@
     </paper-header-panel>
 
 
+    <custom-prompt></custom-prompt>
     <iron-pages selected="0" role="main">
-      <custom-boards name="boards"></custom-boards>
+      <custom-boards></custom-boards>
     </iron-pages>
-
 
     <app-drawer id="navBar">
 
     </app-drawer>
-
 
   </template>
 

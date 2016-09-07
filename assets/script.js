@@ -5,10 +5,13 @@ var BACKEND = location.hostname + ":8080";
 
 // the authentication id of this user
 var authid;
+var friendlyName;
 
 // connection error Message
 var ERRCONNECT = "Couldn't contact server. Message Drew or Logan.";
 
+// private variable
+var prompted = false;
 
 // main
 window.addEventListener("load", function() {
@@ -27,14 +30,27 @@ window.addEventListener("load", function() {
     navigator.serviceWorker.register('worker.js', {scope: './'});
 
     // look up their login info
-    authid = document.cookie;
-    
-    /*if (authid == "") {
-        // new user
-        registerUser("", displaySwitch);
-    } else {
-        displaySwitch();
-    }*/
+    var cookies = document.cookie.split(";");
+    cookies.forEach(function(value) {
+        var parts = value.split("=");
+        if (parts.length == 2) {
+            switch (parts[0].toLowerCase().trim()) {
+                case "authid":
+                    authid = parts[1];
+                    break;
+                case "friendlyname":
+                    friendlyName = parts[1];
+                    break;
+                default:
+                    break;
+            }
+        }
+    });
+
+    if (authid == "" || friendlyName == "") {
+        document.cookie = "";
+        registerUser("", function(e) {});
+    }
 });
 
 // continuously bombards for permission until granted.
@@ -67,143 +83,15 @@ function ajax(url, callback) {
 function $(ele) {
     return document.getElementById(ele);
 }
-/*
-// gets a user's status and decides which ui to display (choreboard or decidechore)
-function displaySwitch() {
-    var th = throbber();
-    ajax("http://" + BACKEND + "/userStatus?authID=" + authid, function(e) {
-        th.stop();
-        if (e.target.status == 200) {
-            var usr = JSON.parse(e.target.responseText);
-            if (usr.Summoned) {
-                decideChore();
-            } else {
-                populateChoreChart();
-            }
-        } else {
-            error(e.target.status, e.target.statusText);
-        }
-    });
-}
-
-// clears and loads a display for deciding to or not to do a chore
-function decideChore() {
-    var form = document.createElement("form");
-
-    // so they know what they're doing
-    var label = document.createElement("label");
-    label.innerHTML = "deadline.";
-    form.appendChild(label);
-
-    // slider input for chore deadline
-    var deadline = document.createElement("input");
-    deadline.type = "range";
-    deadline.min = "1";
-    deadline.max = "72";
-    deadline.value = "1";
-    deadline.id = "timespan";
-
-    // easy to read output for slider
-    var timeBox = document.createElement("p");
-    timeBox.id = "timedisplay";
-    timeBox.innerHTML = "Deadline.";
-
-    // update the read output for the slider
-    deadline.addEventListener("input", function(e) {
-        var val = deadline.value;
-        var now = new Date(Date.now() + 3600000 * val);
-        timeBox.innerHTML = now.toLocaleTimeString() + " " + now.toDateString();
-    });
-
-    // update the output with the time as well
-    timeBox.interval = setInterval(tickUpdate, 1000, timeBox, function() {
-        var val = deadline.value;
-        var now = new Date(Date.now() + 3600000 * val);
-        timeBox.innerHTML = now.toLocaleTimeString() + " " + now.toDateString();
-    });
-
-    form.appendChild(deadline);
-    form.appendChild(timeBox);
-
-    // accept and decline buttons
-    var accept = document.createElement("div");
-    accept.innerHTML = "Accept";
-    accept.id = "accept";
-    accept.addEventListener("click", function(e) {
-        var val = deadline.value;
-        ajax("http://" + BACKEND + "/acceptChore?authID=" + authid + "&deadline=" +
-            new Date(Date.now() + 3600000 * val).toUTCString(),
-        function(r) {
-            if (r.target.status == 200) {
-                populateChoreChart();
-            } else {
-                error(e.status, e.statusText);
-            }
-        });
-    });
-
-    var deny = document.createElement("div");
-    deny.innerHTML = "Decline";
-    deny.id = "deny";
-    deny.addEventListener("click", function(e) {
-        ajax("http://" + BACKEND + "/declineChore?authID=" + authid, 
-        function(r) {
-            if (r.target.status == 200) {
-                populateChoreChart();
-            } else {
-                error(e.status, e.statusText);
-            }
-        });
-    });
-
-    accept.classList.add("button");
-    deny.classList.add("button");
-    form.appendChild(accept);
-    form.appendChild(deny);
-
-    $("wrapper").appendChild(form);
-}
-
-// Interval event that calls callback, stops on element DOM removal
-// requires element has interval field set to the interval id
-function tickUpdate(element, callback) {
-    if (element.parentNode == null) {
-        clearInterval(element.interval);
-    }
-    callback();
-
-}
-
-*/
-function activateChore(chore) {
-    ajax("http://" + BACKEND + "/reportChore?authID=" + 
-        authid + "&choreName=" + chore.ChoreName, 
-        function(e) {
-            if (e.target.status == 200) {
-                console.log("Success.");
-            } else {
-                error(e.target.status, e.target.statusText);
-            }
-    });
-}
-
-function deactiveChore(chore) {
-    ajax("http://" + BACKEND + "/doneWithChore?authID=" + 
-        authid + "&choreName=" + chore.ChoreName, 
-        function(e) {
-            if (e.target.status == 200) {
-                console.log("Success.");
-            } else {
-                error(e.target.status, e.target.statusText);
-            }
-    });
-}
 
 // registers a user, either creating a new account or reauthenticating them
 // takes a string to display for the first prompt, or empty string for the 
 // default prompt, and a callback after a successful registration. 
 // Will continue to query backend server and prompt until successful. 
 function registerUser(str, callback) {
+    if (prompted) 
+        return false;
+    prompted = true;
     // create the prompts
     var prompt = newPrompt(false);
     var text = document.createElement("h1");
@@ -237,6 +125,7 @@ function registerUser(str, callback) {
                 function(e) {
                     // if we're not successful, try again
                     th.stop();
+                    prompted = false;
                     if (e.target.status != 200) {
                         // a wrong password or just can't connect.
                         if (e.target.status == 403) {
@@ -254,7 +143,8 @@ function registerUser(str, callback) {
                             registerUser("Incorrect secret phrase, try again.",
                              callback);
                         } else {
-                            document.cookie = authid;
+                            document.cookie = "authid=" + authid;
+                            document.cookie = "friendlyName=" + friendlyName;
                             callback();
                         }
                     }
@@ -267,6 +157,16 @@ function registerUser(str, callback) {
     
     // put it all together and display the prompt
     prompt.appendChild(input);
+    return true;
+}
+
+function toast(message) {
+    var t = document.createElement("paper-toast");
+    document.body.appendChild(t);
+    t.show({text: message, duration: 3000});
+    setTimeout(function(e) {
+        t.parentNode.removeChild(t);
+    }, 3000);
 }
 
 // creates and returns a prompt box for customization.

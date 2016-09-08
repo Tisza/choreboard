@@ -7,8 +7,8 @@ function ajax(url, callback, error) {
     fetch(url).then(callback).catch(error);
 }
 
-var HOST = "http://localhost";
-var FRONT = "8081";
+var HOST = "http://choreboard";
+var FRONT = "80";
 var BACK = "8080";
 
 var seconds = 1000; // multiplier for timeouts
@@ -92,9 +92,9 @@ function statusCheck() {
                 }
                 var timeout = 60 * seconds;
                 setTimeout(statusCheck, timeout);
-            }, function(e) {
+            }, function(e) { // not connected to the network
                 var timeout = 15 * 60 * seconds;
-                setTImeout(statusCheck, timeout);
+                setTimeout(statusCheck, timeout);
             });
         }
     });

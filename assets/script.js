@@ -2,6 +2,7 @@
 
 // backend server address
 var BACKEND = location.hostname + ":8080";
+var SERVICEWORKER = "worker.js";
 
 // the authentication id of this user
 var authid;
@@ -28,7 +29,7 @@ window.addEventListener("load", function() {
     if (window.Notification.permission != "granted") {
         getPermission();
     }
-    navigator.serviceWorker.register('worker.js', 
+    navigator.serviceWorker.register(SERVICEWORKER, 
         {scope: './'}).then(function(registration) {
             device = registration.active;
             if (authid && friendlyName) {

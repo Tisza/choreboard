@@ -12,6 +12,7 @@ var ERRCONNECT = "Couldn't contact server. Message Drew or Logan.";
 
 // private variable
 var prompted = false;
+var device; // service worker
 
 // main
 window.addEventListener("load", function() {
@@ -27,7 +28,13 @@ window.addEventListener("load", function() {
     if (window.Notification.permission != "granted") {
         getPermission();
     }
-    navigator.serviceWorker.register('worker.js', {scope: './'});
+    navigator.serviceWorker.register('worker.js', 
+        {scope: './'}).then(function(registration) {
+            device = registration.active;
+            if (authid && friendlyName) {
+                device.postMessage({authid: authid, friendlyName: friendlyName});
+            }
+    });
 
     // look up their login info
     var cookies = document.cookie.split(";");
@@ -145,6 +152,7 @@ function registerUser(str, callback) {
                         } else {
                             document.cookie = "authid=" + authid;
                             document.cookie = "friendlyName=" + friendlyName;
+                            device.postMessage({authid: authid, friendlyName: friendlyName});
                             callback();
                         }
                     }

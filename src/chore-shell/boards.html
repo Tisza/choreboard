@@ -39,10 +39,29 @@
 
     <iron-list as="item" id="chores">
       <template>
+        <style>
+          .assignedUserDisplay {
+            color: rgba(0, 0, 0, 0.5);
+            float: right;
+            position: absolute;
+            right: 0;
+            top: 0;
+          }
+          .assignedUserDisplay > h1 {
+            clear: none;
+            margin: 0;
+            padding: 5pt;
+          }
+        </style>
         <div class="cardcontainer">
           <paper-card heading="[[item.Key]]" class$="flex [[item.Class]]">
-          <paper-badge label=[[item.AmtOfShame]] for="div.title-text"></paper-badge>
-            <div class="card-content">[[item.Description]]</div>
+            <div class="assignedUserDisplay">
+              <paper-badge label=[[item.AmtOfShame]] for="div.title-text"></paper-badge>
+              <h1>[[item.Assignee]]</h1>
+            </div>
+            <div class="card-content">
+              [[item.Description]]
+            </div>
             <div class="card-actions">
               <paper-button disabled=[[!item.Assigned]] on-tap="deactivateChore">I did the chore!</paper-button>
               <paper-button disabled=[[item.NeedsWork]] on-tap="activateChore">This chore needs to get done!</paper-button>

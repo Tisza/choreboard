@@ -43,9 +43,13 @@
           decidePrompt = true;
           var form = document.createElement("div");
 
+          var header = document.createElement("h1");
+          header.innerHTML = "You've been assigned a chore.";
+          form.appendChild(header);
+
           // so they know what they're doing
           var label = document.createElement("label");
-          label.innerHTML = "deadline.";
+          label.innerHTML = "Set your deadline.";
           form.appendChild(label);
 
           // slider input for chore deadline
@@ -135,6 +139,7 @@
 
       window.addEventListener("load", function(e) {
         setInterval(displaySwitch, 10000);
+        displaySwitch();
       });    
     </script>
   </template>

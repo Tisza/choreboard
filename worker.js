@@ -102,6 +102,10 @@ function statusCheck() {
 
 self.addEventListener('install', function(event) {
   self.skipWaiting();
+  self.registration.showNotification("Choreboard", 
+    {
+        body: "A new version of choreboard notifier has been installed!"
+    });
 });
 
 self.addEventListener('activate', function(event) {

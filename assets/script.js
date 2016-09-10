@@ -8,11 +8,10 @@ var SERVICEWORKER = "worker.js";
 var authid;
 var friendlyName;
 
-// connection error Message
-var ERRCONNECT = "Couldn't contact server. Message Drew or Logan.";
-
 // private variable
 var prompted = false;
+var errored = false;
+var disconnect = false;
 var device; // service worker
 
 // main
@@ -76,11 +75,22 @@ function getPermission() {
 // an ajax request, for url, will call callback on success.
 // the XMLHttpRequest object is returned for further event listeners.
 function ajax(url, callback) {
+    if (disconnect) {
+        var prog = $("prog");
+        prog.disabled = true;
+        return;
+    }
     var request = new XMLHttpRequest();
     request.addEventListener("load", callback);
     request.addEventListener("error", function(e) {
-        console.log(e);
-        error("Connection Error", ERRCONNECT);
+        if (!disconnect) {
+            disconnect = true;
+            toast("Cannot connect to home");
+            var header = document.createElement("h1");
+            header.id = "block warning";
+            header.innerHTML = "Cannot connect to home";
+            document.body.appendChild(header);
+        }
     })
     request.open("GET", url, true);
     request.send();
@@ -192,6 +202,10 @@ function newPrompt(exitable) {
 }
 // presents a non-closable fatal error to the user
 function error(title, body) {
+    if (errored) {
+        return;
+    }
+    errored = true;
     var prompt = newPrompt(false);
     var head = document.createElement("p");
     var text = document.createElement("p");

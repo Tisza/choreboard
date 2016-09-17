@@ -7,9 +7,8 @@ function ajax(url, callback, error) {
     fetch(url).then(callback).catch(error);
 }
 
-var HOST = "http://choreboard";
-var FRONT = "80";
-var BACK = "8080";
+var FRONT = "https://tisza.github.io/choreboard/index.html";
+var BACK = "http://choreboard:8080";
 
 var seconds = 1000; // multiplier for timeouts
 
@@ -36,7 +35,7 @@ self.addEventListener("message", function(e) {
 });
 
 self.addEventListener("notificationclick", function(e) {
-    clients.openWindow(HOST + ":" + FRONT);
+    clients.openWindow(FRONT);
     e.notification.close();
 });
 
@@ -82,7 +81,7 @@ function statusCheck() {
             signIn();
         } else {
             // have authid
-            ajax(HOST + ":" + BACK + "/userStatus?authID=" + authid, function(e) {
+            ajax(BACK + "/userStatus?authID=" + authid, function(e) {
                 if (e.status == 200) {
                     readStatus(e);
                 } else if (e.status == 403) {

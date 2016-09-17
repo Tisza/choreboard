@@ -1,0 +1,89 @@
+<html><head><link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/paper-tabs/paper-tabs.html">
+<link rel="import" href="../../bower_components/paper-card/paper-card.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/iron-list/iron-list.html">
+<link rel="import" href="../../bower_components/paper-badge/paper-badge.html">
+<link rel="import" href="../../bower_components/paper-styles/paper-styles.html">
+
+</head><body><dom-module id="custom-boards">
+  <template>
+    <style>
+      :host {
+        display: block;
+      }
+      iron-list {
+        padding: 15pt;
+      }
+      .cardcontainer {
+        padding: 15pt;
+        @apply(--layout-horizontal);
+      }
+      .selfActive {
+        background: repeating-linear-gradient(-45deg, var(--paper-cyan-400), var(--paper-cyan-400) 3pt, var(--dark-theme-secondary-color) 3pt, var(--dark-theme-secondary-color) 6pt);
+      }
+      .active {
+        background: repeating-linear-gradient(-45deg, var(--paper-lime-500), var(--paper-lime-500) 3pt, var(--dark-theme-secondary-color) 3pt, var(--dark-theme-secondary-color) 6pt);
+      }
+      .working {
+        background: repeating-linear-gradient(-45deg, var(--paper-indigo-200), var(--paper-indigo-200) 3pt, var(--dark-theme-secondary-color) 3pt, var(--dark-theme-secondary-color) 6pt);
+      }
+    </style>
+    
+    <div>
+      <paper-tabs selected="0" on-iron-select="loadCards">
+        <paper-tab>ChoreBoard</paper-tab>
+        <paper-tab>ScoreBoard</paper-tab>
+      </paper-tabs>
+    </div>
+
+    <iron-list as="item" id="chores">
+      <template>
+        <style>
+          .assignedUserDisplay {
+            color: rgba(0, 0, 0, 0.5);
+            float: right;
+            position: absolute;
+            right: 0;
+            top: 0;
+          }
+          .assignedUserDisplay > h1 {
+            clear: none;
+            margin: 0;
+            padding: 5pt;
+          }
+        </style>
+        <div class="cardcontainer">
+          <paper-card heading="[[item.Key]]" class$="flex [[item.Class]]">
+            <div class="assignedUserDisplay">
+              <paper-badge label="[[item.AmtOfShame]]" for="div.title-text"></paper-badge>
+              <h1>[[item.Assignee]]</h1>
+            </div>
+            <div class="card-content">
+              [[item.Description]]
+            </div>
+            <div class="card-actions">
+              <paper-button disabled="[[!item.Assigned]]" on-tap="deactivateChore">I did the chore!</paper-button>
+              <paper-button disabled="[[item.NeedsWork]]" on-tap="activateChore">This chore needs to get done!</paper-button>
+            </div>
+          </paper-card>
+        </div>
+      </template>
+    </iron-list>
+
+    <iron-list as="item" id="players">
+      <template>
+        <div class="cardcontainer">
+          <paper-card heading="[[item.FriendlyName]]" class="flex">
+            <div class="card-content">[[item.Shame]]</div>
+          </paper-card>
+        </div>
+      </template>
+    </iron-list>
+
+    
+  </template>
+
+  <script>function loadChoreboard(){var t=document.querySelector("iron-list");ajax("http://"+BACKEND+"/choreBoard?authID="+authid,function(e){if(200==e.target.status){var a=JSON.parse(e.target.responseText),r=[];for(key in a){var s=a[key];s.Key=key,s.Assigned=friendlyName.toLowerCase().trim()==s.Assignee.toLowerCase().trim(),s.Assigned?s.Class="selfActive":""!=s.Assignee?s.Class="active":s.NeedsWork?s.Class="working":s.Class="",r.push(s)}t.items=r,t.fire("iron-resize")}else 403==e.target.status?(document.cookie="",authid="",registerUser("Please Log In:",loadChoreboard)):error(e.target.status,e.target.statusText)})}function loadScoreboard(){var t=$("players");ajax("http://"+BACKEND+"/scoreBoard?authID="+authid,function(e){if(200==e.target.status){var a=JSON.parse(e.target.responseText);t.items=a,t.fire("iron-resize")}else 403==e.target.status?(document.cookie="",authid="",registerUser("Please Log In:",loadScoreboard)):error(e.target.status,e.target.statusText)})}Polymer({is:"custom-boards",properties:{prop1:{type:String,value:"boards"}},loadCards:function(t){var e=document.getElementById("prog");e.disabled=!1;var a=$("chores");a.items=[];var r=$("players");switch(r.items=[],t.target.selected){default:case 0:loadChoreboard();break;case 1:loadScoreboard()}e.disabled=!0},activateChore:function(t){var e=t.path[0],a=t.path[2];ajax("http://"+BACKEND+"/reportChore?authID="+authid+"&choreName="+a.heading,function(t){200==t.target.status?(e.disabled=!0,toast("Chore Activated")):error(t.target.status,t.target.statusText)})},deactivateChore:function(t){var e=t.path[0],a=t.path[2];ajax("http://"+BACKEND+"/doneWithChore?authID="+authid+"&choreName="+a.heading,function(t){200==t.target.status?(e.disabled=!0,toast("Chore Deactivated")):error(t.target.status,t.target.statusText)})}});</script>
+</dom-module>
+</body></html>

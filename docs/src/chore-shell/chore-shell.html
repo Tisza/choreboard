@@ -1,0 +1,47 @@
+<html><head><link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/app-layout/app-layout.html">
+<link rel="import" href="../../bower_components/paper-header-panel/paper-header-panel.html">
+<link rel="import" href="../../bower_components/paper-toolbar/paper-toolbar.html">
+<link rel="import" href="../../bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="../../bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="../../bower_components/paper-progress/paper-progress.html">
+<link rel="import" href="../../bower_components/paper-styles/paper-styles.html">
+<link rel="import" href="../../bower_components/paper-menu/paper-menu.html">
+<link rel="import" href="../../bower_components/paper-card/paper-card.html">
+<link rel="import" href="../../bower_components/iron-pages/iron-pages.html">
+<link rel="import" href="boards.html">
+<link rel="import" href="prompt.html">
+
+</head><body><dom-module id="chore-shell">
+  <template>
+    <style>
+      :host {
+        display: block;
+        font-family: helvetica, sans-serif;
+        --paper-progress-active-color: var(--dark-primary-color);
+      }
+    </style>
+    
+    <paper-header-panel mode="waterfall" class="flex">
+      <paper-toolbar>
+        <paper-icon-button icon="menu" on-tap="nav"></paper-icon-button>
+        <div class="title">ChoreBoard</div>
+        <paper-progress id="prog" class="fit bottom" indeterminate="true" disabled="true"></paper-progress>
+      </paper-toolbar>
+    </paper-header-panel>
+
+
+    <custom-prompt></custom-prompt>
+    <iron-pages selected="0" role="main">
+      <custom-boards></custom-boards>
+    </iron-pages>
+
+    <app-drawer id="navBar">
+
+    </app-drawer>
+
+  </template>
+
+  <script>Polymer({is:"chore-shell",properties:{prop1:{type:String,value:"chore-shell"}},nav:function(e){var r=document.getElementById("navBar");r.open()}});</script>
+</dom-module>
+</body></html>

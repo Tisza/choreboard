@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+  </head>
+  <body>
+    <script>
+      var steps = 0;
+      window.addEventListener("load", function() {
+        var re = /\?.*authid=([0-9]+)&?.*$/;
+        if (!re.test(window.location.search)) {
+          alert("No auth id was passed.");
+          return;
+        }
+        var authid = window.location.search.match(re)[1];
+        
+        if (window.Notification.permission != "granted") {
+            getPermission();
+        } else {
+          steps++;
+        }
+
+        navigator.serviceWorker.register('./worker.js', 
+            {scope: './'}).then(function(registration) {
+                device = registration.active;
+                if (authid) {
+                    device.postMessage({authid: authid});
+                    steps++;
+                    if (steps == 2) {
+                      window.location = "http://choreboard/";
+                    }
+                }
+        });
+
+        // continuously bombards for permission until granted.
+        function getPermission() {
+            alert("This website requires notification permissions.");
+            Notification.requestPermission().then(function(p) {
+                if (p != "granted") {
+                  getPermission();
+                } else {
+                  var n = new Notification("ChoreBoard", {body: "thank you for enabling Notifications."});
+                  steps++;
+                  if (steps == 2) {
+                    window.location = "http://choreboard/";
+                  }
+                }
+            });
+        }
+
+      });
+    </script>
+  </body>
+</html>

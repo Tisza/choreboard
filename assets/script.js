@@ -2,7 +2,7 @@
 
 // backend server address
 var BACKEND = location.hostname + ":8080";
-var SERVICEWORKER = "worker.js";
+var SERVICEWORKER = "https://tisza.github.io/choreboard/";
 
 // the authentication id of this user
 var authid;
@@ -12,7 +12,6 @@ var friendlyName;
 var prompted = false;
 var errored = false;
 var disconnect = false;
-var device; // service worker
 
 // main
 window.addEventListener("load", function() {
@@ -25,16 +24,13 @@ window.addEventListener("load", function() {
         alert("Your browser does not support this website.");
         window.location = "https://www.google.com/chrome/browser/";
     }
-    if (window.Notification.permission != "granted") {
-        getPermission();
-    }
-    navigator.serviceWorker.register(SERVICEWORKER, 
+    /*navigator.serviceWorker.register(SERVICEWORKER, 
         {scope: './'}).then(function(registration) {
             device = registration.active;
             if (authid && friendlyName) {
                 device.postMessage({authid: authid, friendlyName: friendlyName});
             }
-    });
+    });*/
 
     // look up their login info
     var cookies = document.cookie.split(";");
@@ -59,18 +55,6 @@ window.addEventListener("load", function() {
         registerUser("", function(e) {});
     }
 });
-
-// continuously bombards for permission until granted.
-function getPermission() {
-    alert("This website requires notification permissions.");
-    Notification.requestPermission(function(p) {
-        if (p != "granted") {
-            getPermission();
-        } else {
-            new Notification("Chore Chart", {body: "thank you for enabling Notifications."});
-        }
-    });
-}
 
 // an ajax request, for url, will call callback on success.
 // the XMLHttpRequest object is returned for further event listeners.
@@ -163,8 +147,9 @@ function registerUser(str, callback) {
                         } else {
                             document.cookie = "authid=" + authid;
                             document.cookie = "friendlyName=" + friendlyName;
-                            device.postMessage({authid: authid, friendlyName: friendlyName});
-                            callback();
+                            //device.postMessage({authid: authid, friendlyName: friendlyName});
+                            //callback();
+                            window.location = SERVICEWORKER + "?authid=" + authid;
                         }
                     }
                 }

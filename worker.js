@@ -10,6 +10,7 @@ function ajax(url, callback, error) {
 var HOST = "http://choreboard";
 var FRONT = "80";
 var BACK = "8080";
+var LOGIN = HOST + ":" + FRONT + "/workerNeedAuth.html";
 
 var seconds = 1000; // multiplier for timeouts
 

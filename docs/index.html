@@ -1,0 +1,49 @@
+<!DOCTYPE html><html><head>
+    <title>choremaster</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <link rel="manifest" href="manifest.json">
+    <script src="bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+    <link rel="import" href="bower_components/paper-dialog/paper-dialog.html">
+    <link rel="import" href="bower_components/paper-toast/paper-toast.html">
+    <script src="assets/script.js"></script>
+    <link rel="import" href="src/chore-shell/chore-shell.html">
+  </head>
+  <body class="fullbleed layout vertical" style="margin: 0">
+    <style>
+      body > h1 {
+        font-family: helvetica, sans-serif;
+        animation-name: fadein, traverse;
+        animation-iteration-count: 1, infinite;
+        animation-duration: 5s;
+        animation-timing-function: ease, linear;
+        position: relative;
+        text-align: center;
+        width: 80%;
+      }
+
+      @keyframes fadein {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes traverse {
+        0%, 100% {
+          margin-left: 10%;
+        }
+        25% {
+          margin-left: 20%;
+        }
+        75% {
+          margin-left: 0%;
+        }
+      }
+    </style>
+    <chore-shell></chore-shell>
+  
+
+</body></html>

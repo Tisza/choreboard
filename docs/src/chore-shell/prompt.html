@@ -1,0 +1,16 @@
+<html><head><link rel="import" href="../../bower_components/polymer/polymer.html">
+<link rel="import" href="../../bower_components/paper-dialog/paper-dialog.html">
+<link rel="import" href="../../bower_components/paper-button/paper-button.html">
+<link rel="import" href="../../bower_components/paper-slider/paper-slider.html">
+
+</head><body><dom-module id="custom-prompt">
+  <template>
+    <style>
+      :host {
+
+      }
+    </style>
+    <script>function displaySwitch(){var e=throbber();ajax("http://"+BACKEND+"/userStatus?authID="+authid,function(t){if(e.stop(),200==t.target.status){var a=JSON.parse(t.target.responseText);a.Summoned&&decideChore()}else 403==t.target.status?(document.cookie="",authid="",registerUser("Please Log In:",displaySwitch)):error(t.target.status,t.target.statusText)})}function decideChore(){if(decidePrompt)return!1;decidePrompt=!0;var e=document.createElement("div"),t=document.createElement("h1");t.innerHTML="You've been assigned a chore.",e.appendChild(t);var a=document.createElement("label");a.innerHTML="Set your deadline.",e.appendChild(a);var n=document.createElement("paper-slider");n.min=1,n.max=72,n.value=1,n.snaps=!0,n.step=1,n.id="timespan";var i=document.createElement("p");i.id="timedisplay",i.innerHTML="Deadline.",n.addEventListener("immediate-value-change",function(e){var t=n.immediateValue,a=new Date(Date.now()+36e5*t);i.innerHTML=a.toLocaleTimeString()+" "+a.toDateString()}),i.interval=setInterval(tickUpdate,1e3,i,function(){var e=n.immediateValue,t=new Date(Date.now()+36e5*e);i.innerHTML=t.toLocaleTimeString()+" "+t.toDateString()}),e.appendChild(n),e.appendChild(i);var r=document.createElement("paper-button");r.innerHTML="Accept",r.id="accept",r.addEventListener("click",function(e){var t=n.immediateValue;ajax("http://"+BACKEND+"/acceptChore?authID="+authid+"&deadline="+new Date(Date.now()+36e5*t).toUTCString(),function(t){decidePrompt=!1,o.close(),200==t.target.status?toast("Chore Accepted"):error(e.status,e.statusText)})});var d=document.createElement("paper-button");d.innerHTML="Decline",d.id="deny",d.addEventListener("click",function(e){ajax("http://"+BACKEND+"/declineChore?authID="+authid,function(t){decidePrompt=!1,o.close(),200==t.target.status?toast("Chore Declined"):error(e.status,e.statusText)})}),r.classList.add("button"),d.classList.add("button"),e.appendChild(r),e.appendChild(d);var o=newPrompt(!1);o.appendChild(e)}function tickUpdate(e,t){null==e.parentNode&&clearInterval(e.interval),t()}var decidePrompt=!1;window.addEventListener("load",function(e){setInterval(displaySwitch,1e4),displaySwitch()});</script>
+  </template>
+  <script>Polymer({is:"custom-prompt",properties:{prop1:{type:String,value:"prompt"}}});</script>
+</dom-module></body></html>

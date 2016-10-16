@@ -46,8 +46,8 @@ func handleUserStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleAcceptChore(w http.ResponseWriter, r *http.Request) {
-	status := model.AcceptChore(r.Form[ACCEPT_CHORE_PARAMS[0]][0], r.Form[ACCEPT_CHORE_PARAMS[1]][0])
-	handleStatus(w, r, status)
+	json, status := model.AcceptChore(r.Form[ACCEPT_CHORE_PARAMS[0]][0], r.Form[ACCEPT_CHORE_PARAMS[1]][0])
+	handleJson(w, json, status)
 }
 
 func handleDeclineChore(w http.ResponseWriter, r *http.Request) {

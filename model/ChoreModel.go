@@ -160,18 +160,18 @@ var SummoningOrderChan = make(chan *list.List, 1)
 
 // returns JSON object with information about a particular user
 func GetUserStatus(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
-		return users[authID]
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) (interface{}, HttpStatus) {
+		return users[authID], OK
 	}, func(){}, authID)
 }
 
 // assigns the first chore in the queue of to-do chores to the summoned user with authID, and returns 200 OK
 // otherwise returns 500 HttpStatus with error message
-func AcceptChore(authID string, deadline string) HttpStatus {
-	return authFilterStatus(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) HttpStatus {
+func AcceptChore(authID string, deadline string) ([]byte, HttpStatus) {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) (interface{}, HttpStatus) {
 
 		if choreQ.Len() == 0 {
-			return HttpStatus{500, fmt.Sprint("queue of to-do chores is empty. nothing to accept")}
+			return []byte{}, HttpStatus{500, fmt.Sprint("queue of to-do chores is empty. nothing to accept")}
 		}
 
 		tmp := choreQ.Front()
@@ -189,12 +189,12 @@ func AcceptChore(authID string, deadline string) HttpStatus {
 				writeToJsonStorageFile(CHORES_FILENAME, chores)
 				writeToJsonStorageFile(CHOREQ_FILENAME, listToSlice(choreQ))
 
-				return OK
+				return choreName, OK
 			}
-			return HttpStatus{500, fmt.Sprintf("user is already assigned to a chore: %s", users[authID].AssignedChore)}
+			return []byte{}, HttpStatus{500, fmt.Sprintf("user is already assigned to a chore: %s", users[authID].AssignedChore)}
 		}
-		return HttpStatus{500, fmt.Sprintf("chore '%s' does not exist or is already active", choreName)}
-	}, authID)
+		return []byte{}, HttpStatus{500, fmt.Sprintf("chore '%s' does not exist or is already active", choreName)}
+	}, func(){}, authID)
 }
 
 // user with authID is declining this chore, so their shame is increased and are marked as no longer summoned
@@ -237,23 +237,23 @@ func DeclineChore(authID string) HttpStatus {
 
 // returns a JSON object with information about all of the chores
 func GetChoreBoard(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
-		return chores
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) (interface{}, HttpStatus) {
+		return chores, OK
 	}, func(){}, authID)
 }
 
 func GetScoreBoard(authID string) ([]byte, HttpStatus) {
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
-		return getScores(users)
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) (interface{}, HttpStatus) {
+		return getScores(users), OK
 	}, func(){}, authID)
 }
 
 // verifies that user with friendlyName and password exists, and returns a custom authID that will be used as an identifier for their session
 func LoginUser(friendlyName string, password string) ([]byte, HttpStatus) {
 	authID := constructAuthID(friendlyName, password)
-	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) interface{} {
+	return authFilterJson(func(users map[string](*User), chores map[string](*Chore), choreQ *list.List, summoningOrder *list.List) (interface{}, HttpStatus) {
 		// everything checks out, return back the authID and OK status
-		return authID
+		return authID, OK
 	}, func() {
 		// adding users dynamically isn't needed for the demo
 		//addUser(User{authID, friendlyName, password, "", "", 0, false})
@@ -380,12 +380,13 @@ func InititalizeDataStructures() {
 
 // MMMMMMMMMM
 // synchronously acquires and releases internal data structures outside of given function
-func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*Chore), *list.List, *list.List) interface{},
+func authFilterJson(getMarshalableObject func(map[string](*User), map[string](*Chore), *list.List, *list.List) (interface{}, HttpStatus),
 					optionalFailure func(),
 					authID string) ([]byte, HttpStatus) {
 	users, chores, choreQ, summoningOrder := aqcuireInternals()
 	if verifyAuthID(authID, users) {
-		bytes, status := marshalAndValidate(getMarshalableObject(users, chores, choreQ, summoningOrder))
+		obj, status := getMarshalableObject(users, chores, choreQ, summoningOrder)
+		bytes, status := marshalAndValidate(obj, status)
 		releaseInternals(users, chores, choreQ, summoningOrder)
 		return bytes, status
 	} else {
@@ -485,7 +486,11 @@ func releaseInternals(users map[string](*User), chores map[string](*Chore), chor
 	SummoningOrderChan <- summoningOrder
 }
 
-func marshalAndValidate(v interface{}) ([]byte, HttpStatus) {
+func marshalAndValidate(v interface{}, status HttpStatus) ([]byte, HttpStatus) {
+	if status.Code != 200 {
+		return []byte{}, status
+	}
+
 	if json, err := json.Marshal(v); err != nil {
 		return []byte{}, HttpStatus{http.StatusInternalServerError, err.Error()}
 	} else {

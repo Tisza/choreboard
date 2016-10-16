@@ -2,5 +2,26 @@
 	"ImportPath": "github.com/choreboard",
 	"GoVersion": "go1.6",
 	"GodepVersion": "v74",
-	"Deps": []
+	"Deps": [
+		{
+			"ImportPath": "github.com/emirpasic/gods/containers",
+			"Comment": "v1.5.0-6-g62b6e90",
+			"Rev": "62b6e90ed7e32e181a49fae6834041f02af2f840"
+		},
+		{
+			"ImportPath": "github.com/emirpasic/gods/sets",
+			"Comment": "v1.5.0-6-g62b6e90",
+			"Rev": "62b6e90ed7e32e181a49fae6834041f02af2f840"
+		},
+		{
+			"ImportPath": "github.com/emirpasic/gods/sets/hashset",
+			"Comment": "v1.5.0-6-g62b6e90",
+			"Rev": "62b6e90ed7e32e181a49fae6834041f02af2f840"
+		},
+		{
+			"ImportPath": "github.com/emirpasic/gods/utils",
+			"Comment": "v1.5.0-6-g62b6e90",
+			"Rev": "62b6e90ed7e32e181a49fae6834041f02af2f840"
+		}
+	]
 }

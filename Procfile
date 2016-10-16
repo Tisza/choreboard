@@ -1,1 +1,1 @@
-web: go run ChoreController.go
+web: choreboard

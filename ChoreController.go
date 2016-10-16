@@ -1,7 +1,7 @@
 package main
 
 import (
-	"choreboard/model"
+	"github.com/choreboard/model"
 	"fmt"
 	"net/http"
 	"strconv"

@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"strconv"
 	"github.com/emirpasic/gods/sets/hashset"
+	"log"
+	"os"
 )
 
-const PORT string = "8080"
-const HOST = ":" + PORT
+var PORT string = "80"
+var HOST = ":" + PORT
 
 var USER_STATUS_PARAMS = []string{"authID"}
 var ACCEPT_CHORE_PARAMS = []string{"authID", "deadline"}
@@ -21,6 +23,15 @@ var REPORT_CHORE_PARAMS = []string{"authID", "choreName"}
 var DONE_WITH_CHORE_PARAMS = []string{"authID", "choreName"}
 
 func main() {
+
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		log.Fatal("$PORT must be set")
+	}
+
+	PORT = port
+	HOST = ":" + PORT
 
 	model.InititalizeDataStructures()
 

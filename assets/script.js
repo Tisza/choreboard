@@ -2,7 +2,6 @@
 
 // backend server address
 var BACKEND = location.hostname + ":8080";
-var SERVICEWORKER = "https://tisza.github.io/choreboard/";
 
 // the authentication id of this user
 var authid;
@@ -15,23 +14,6 @@ var disconnect = false;
 
 // main
 window.addEventListener("load", function() {
-    // browser checks
-    if (!"Notification" in window) {
-        alert("Your browser does not support this website.");
-        window.location = "https://www.google.com/chrome/browser/";
-    }
-    if (!"serviceWorker" in Navigator) {
-        alert("Your browser does not support this website.");
-        window.location = "https://www.google.com/chrome/browser/";
-    }
-    /*navigator.serviceWorker.register(SERVICEWORKER, 
-        {scope: './'}).then(function(registration) {
-            device = registration.active;
-            if (authid && friendlyName) {
-                device.postMessage({authid: authid, friendlyName: friendlyName});
-            }
-    });*/
-
     // look up their login info
     var cookies = document.cookie.split(";");
     cookies.forEach(function(value) {
@@ -147,9 +129,7 @@ function registerUser(str, callback) {
                         } else {
                             document.cookie = "authid=" + authid;
                             document.cookie = "friendlyName=" + friendlyName;
-                            //device.postMessage({authid: authid, friendlyName: friendlyName});
-                            //callback();
-                            window.location = SERVICEWORKER + "?authid=" + authid;
+                            callback();
                         }
                     }
                 }
